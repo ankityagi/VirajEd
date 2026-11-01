@@ -450,7 +450,8 @@
           <label for="s-branch">Branch</label><input id="s-branch" class="txt" value="${c.branch}" autocomplete="off">
           <label for="s-token">Access token</label><input id="s-token" class="txt" type="password" value="${c.token}" autocomplete="off" placeholder="github_pat_…">
           <div class="actions left"><button class="btn primary" type="button" id="s-save">Save and test</button><button class="btn" type="button" id="s-flush">Upload now</button></div>
-          <p class="pin-msg" id="s-msg">${VQSync.pending() ? `${VQSync.pending()} level(s) waiting to upload.` : ''}</p>
+          <p class="pin-msg" id="s-msg"></p>
+          <p class="muted small" id="s-status">${(() => { const L = VQSync.lastLog(); const tok = c.token ? 'Token saved on this device.' : 'No token saved on this device yet.'; return `${tok} ${VQSync.pending()} level(s) waiting to upload.${L ? ` Last upload attempt ${new Date(L.at).toLocaleString()}: ${L.msg}` : ' No uploads tried yet.'}`; })()}</p>
         </section>
         <section class="panel">
           <h2>PINs</h2>
