@@ -175,7 +175,7 @@
             <span class="dots" aria-label="Question ${run.i + 1} of ${QUESTIONS}">${dots()}</span>
           </div>
           <article class="qcard">
-            <p class="qnum">Question ${run.i + 1} of ${QUESTIONS}</p>
+            <p class="qnum">Question ${run.i + 1} of ${QUESTIONS}${run.i === 0 ? ' · answer, tap Check, then Next for question 2' : ''}</p>
             <div class="prompt">${q.prompt}</div>
             ${q.fig ? `<figure class="fig">${q.fig}</figure>` : ''}
             ${answerUI}

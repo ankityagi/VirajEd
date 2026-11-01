@@ -292,3 +292,4 @@ h2 { font-size: 1.35rem; font-weight: 700; }
 .fig .hand.hr { stroke-width: 6; stroke: var(--ink-blue); }
 .qcount { margin-top: 3px; font: 700 .72rem var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-blue); }
 .lvl.locked .qcount { color: var(--muted); }
+.build { text-align: center; font: 600 .7rem var(--mono); color: var(--muted); letter-spacing: .06em; padding-block: 0 24px; }
