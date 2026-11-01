@@ -89,5 +89,66 @@ window.Draw = (function () {
     return `<svg viewBox="0 0 ${VW} ${VH}" role="img" aria-label="${esc(spec.alt || 'Figure')}">${body}${settle(labels)}</svg>`;
   }
 
-  return { figure };
+  /* ---------- data displays ---------- */
+  const W = 340;
+  const svg = (h, body, alt) => `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="${esc(alt || 'Graph')}">${body}</svg>`;
+  const t = (x, y, s, cls, anchor = 'middle') => `<text class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle">${esc(s)}</text>`;
+
+  // Bar graph. vals[i] === null draws a dashed "?" bar.
+  function bars({ cats, vals, step, max, title, alt }) {
+    const H = 250, L = 46, Rm = 10, T = title ? 30 : 14, B = 32, pw = W - L - Rm, ph = H - T - B;
+    const y = v => T + ph - (v / max) * ph;
+    let b = title ? t(W / 2, 12, title, 'ttl') : '';
+    for (let v = 0; v <= max; v += step) {
+      b += `<line class="gl" x1="${L}" x2="${W - Rm}" y1="${y(v)}" y2="${y(v)}"/>` + t(L - 7, y(v), v, 'tk', 'end');
+    }
+    const n = cats.length, bw = (pw / n) * 0.58;
+    cats.forEach((c, i) => {
+      const cx = L + (pw * (i + 0.5)) / n;
+      if (vals[i] == null) {
+        const hh = ph * 0.35;
+        b += `<rect class="bar miss" x="${cx - bw / 2}" y="${T + ph - hh}" width="${bw}" height="${hh}"/>` + t(cx, T + ph - hh / 2, '?', 'qm');
+      } else {
+        b += `<rect class="bar" x="${(cx - bw / 2).toFixed(1)}" y="${y(vals[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${(T + ph - y(vals[i])).toFixed(1)}"/>`;
+      }
+      b += t(cx, H - B + 17, c, 'tk');
+    });
+    b += `<line class="ax" x1="${L}" x2="${W - Rm}" y1="${T + ph}" y2="${T + ph}"/><line class="ax" x1="${L}" x2="${L}" y1="${T}" y2="${T + ph}"/>`;
+    return svg(H, b, alt || title);
+  }
+
+  // Line plot: X marks stacked above each tick.
+  function linePlot({ labels, counts, title, alt }) {
+    const top = Math.max(...counts, 3), H = 70 + top * 19 + (title ? 18 : 0), base = H - 34, L = 26, Rm = 26;
+    const x = i => L + ((W - L - Rm) * i) / (labels.length - 1);
+    let b = title ? t(W / 2, 12, title, 'ttl') : '';
+    b += `<line class="ax" x1="${L - 14}" x2="${W - Rm + 14}" y1="${base}" y2="${base}"/>`;
+    labels.forEach((lab, i) => {
+      b += `<line class="ax" x1="${x(i)}" x2="${x(i)}" y1="${base - 6}" y2="${base + 6}"/>` + t(x(i), base + 21, lab, 'tkf');
+      for (let k = 0; k < counts[i]; k++) b += t(x(i), base - 17 - k * 19, '×', 'xm');
+    });
+    return svg(H, b, alt || title);
+  }
+
+  // Picture graph: rows of icons, n may end in .5 (half icon).
+  function picto({ rows, key, title, alt }) {
+    const rowH = 36, T = title ? 34 : 14, H = T + rows.length * rowH + 34, L = 84, r = 11, gap = 27;
+    let b = title ? t(W / 2, 12, title, 'ttl') : '';
+    rows.forEach((row, i) => {
+      const cy = T + i * rowH + rowH / 2;
+      b += t(L - 10, cy, row.label, 'tk', 'end');
+      b += `<line class="gl" x1="${L}" x2="${W - 8}" y1="${cy + rowH / 2}" y2="${cy + rowH / 2}"/>`;
+      const full = Math.floor(row.n);
+      for (let k = 0; k < full; k++) b += `<circle class="ico" cx="${L + r + 4 + k * gap}" cy="${cy}" r="${r}"/>`;
+      if (row.n - full >= 0.5) {
+        const cx = L + r + 4 + full * gap;
+        b += `<path class="ico" d="M${cx},${cy - r} A${r},${r} 0 0 0 ${cx},${cy + r} Z"/>`;
+      }
+    });
+    const ky = H - 16;
+    b += `<circle class="ico" cx="${L + r + 4}" cy="${ky}" r="${r - 2}"/>` + t(L + r + 20, ky, `= ${key}`, 'tk key', 'start');
+    return svg(H, b, alt || title);
+  }
+
+  return { figure, bars, linePlot, picto };
 })();

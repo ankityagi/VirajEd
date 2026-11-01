@@ -24,9 +24,10 @@ It also works as-is on GitHub Pages.
 ```
 index.html                 page shell
 css/style.css              all styling (light + dark)
-js/draw.js                 SVG helper for labelled shapes
+js/draw.js                 SVG helpers: labelled shapes, bar graphs, line plots, picture graphs
 js/topics/measurement.js   Measurement & Area: 10 levels of question generators
 js/topics/time-money.js    Time & Money: 10 levels (elapsed time, schedules, coins, change)
+js/topics/graphs.js        Graphs & Line Plots: 10 levels (bar/picture graphs, tables, fraction line plots)
 js/app.js                  game engine: home tiles, level map, play loop, results
 ```
 
@@ -48,7 +49,11 @@ variant returns a new random question:
 ```js
 { prompt, fig?, answer: 42, unit: 'sq cm', hint, explain }           // typed answer
 { prompt, choices: ['Area', 'Perimeter'], answer: 0, hint, explain }  // multiple choice
+{ prompt, answer: 1.75, answerText: '1¾', frac: true, unit: 'in', ... } // fraction answer
 ```
+
+Typed answers accept whole numbers, decimals, money (`$4.85`) and fractions
+(`3/4`, `1 3/4`, `1-3/4`).
 
 Topics listed as "Coming soon" live in the `COMING` list at the top of `js/app.js`;
 a real topic with the same `id` replaces its placeholder automatically.

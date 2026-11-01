@@ -14,7 +14,6 @@
     { id: 'geo', name: 'Geometry' }
   ];
   const COMING = [
-    { id: 'graphs', area: 'md', name: 'Graphs & Line Plots', blurb: 'Read bar graphs, line plots and tables.', icon: 'bars' },
     { id: 'fractions', area: 'nbt', name: 'Fractions', blurb: 'Equivalent fractions, comparing, adding.', icon: 'pie' },
     { id: 'multiply', area: 'nbt', name: 'Big Multiplication', blurb: 'Multi-digit times and long division.', icon: 'times' },
     { id: 'decimals', area: 'nbt', name: 'Decimals', blurb: 'Tenths, hundredths and money.', icon: 'dot' },
@@ -155,7 +154,7 @@
         ? `<div class="choices">${q.choices.map((c, k) => `<button class="choice" data-k="${k}">${c}</button>`).join('')}</div>`
         : `<form class="answer" id="f" autocomplete="off">
              <label for="ans" class="sr">Your answer</label>
-             <span class="field">${q.unit === 'dollars' ? '<span class="pre">$</span>' : ''}<input id="ans" inputmode="decimal" placeholder="?" required>${q.unit && q.unit !== 'dollars' ? `<span class="unit">${q.unit}</span>` : ''}</span>
+             <span class="field">${q.unit === 'dollars' ? '<span class="pre">$</span>' : ''}<input id="ans" ${q.frac ? 'inputmode="text"' : 'inputmode="decimal"'} placeholder="${q.frac ? 'e.g. 1 3/4' : '?'}" required>${q.unit && q.unit !== 'dollars' ? `<span class="unit">${q.unit}</span>` : ''}</span>
              <button class="btn primary" type="submit">Check</button>
            </form>`;
       go(`<div class="playtop">
@@ -181,8 +180,7 @@
       } else {
         app.querySelector('#f').addEventListener('submit', e => {
           e.preventDefault();
-          const raw = app.querySelector('#ans').value.replace(/[,$\s]/g, '');
-          const v = parseFloat(raw);
+          const v = parseAnswer(app.querySelector('#ans').value);
           if (isNaN(v)) { app.querySelector('#ans').focus(); return; }
           check(v);
         });
@@ -204,7 +202,7 @@
       } else {
         app.querySelector('.field').classList.add(ok ? 'right' : 'wrong');
       }
-      const correct = q.choices ? q.choices[q.answer] : (q.unit === 'dollars' ? '$' + q.answer.toFixed(Number.isInteger(q.answer) ? 0 : 2) : `${q.answer.toLocaleString('en-US')} ${q.unit || ''}`);
+      const correct = q.choices ? q.choices[q.answer] : q.answerText ? `${q.answerText} ${q.unit || ''}` : (q.unit === 'dollars' ? '$' + q.answer.toFixed(Number.isInteger(q.answer) ? 0 : 2) : `${q.answer.toLocaleString('en-US')} ${q.unit || ''}`);
       const fb = app.querySelector('#fb');
       fb.className = 'feedback ' + (ok ? 'good' : 'bad');
       fb.innerHTML = `<p class="verdict">${ok ? pick(['Nailed it!', 'Correct!', 'Nice work!', 'Exactly right!']) + ` <span class="plus">+${q.usedHint ? 5 : 10} XP</span>` : `Not quite. The answer is <b>${correct}</b>.`}</p>
@@ -249,6 +247,16 @@
   }
 
   const pick = a => a[Math.floor(Math.random() * a.length)];
+
+  // Accepts 42, 1,250, $4.85, 3/4, 1 3/4, 1-3/4
+  function parseAnswer(str) {
+    const s = str.trim().replace(/[,$]/g, '').replace(/\s*(sq|in|ft|cm|m|min|s|h)\b.*$/i, '');
+    let m = s.match(/^(\d+)\s*[ -]\s*(\d+)\s*\/\s*(\d+)$/);
+    if (m) return +m[1] + m[2] / m[3];
+    m = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (m) return m[1] / m[2];
+    return parseFloat(s.replace(/\s/g, ''));
+  }
 
   /* ---------- confetti ---------- */
   function confetti() {
