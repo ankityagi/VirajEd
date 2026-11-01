@@ -1,10 +1,11 @@
 # Viraj's Math Quest
 
 A small practice site for Viraj. Each tile on the home screen is one topic. Each topic has
-**10 levels** that get harder as you go, with 5 fresh random questions per level.
+**10 levels** that get harder as you go, with 10 fresh random questions per level
+(no repeats within a level).
 
-- Get **4 of 5** right to unlock the next level.
-- Stars: 5/5 with no hints = 3 stars, 5/5 with a hint = 2 stars, 4/5 = 1 star.
+- Get **8 of 10** right to unlock the next level.
+- Stars: 10/10 with no hints = 3 stars, 9 or more = 2 stars, 8 = 1 star.
 - XP: +10 per correct answer (+5 if a hint was used).
 - Progress is saved in the browser (localStorage).
 - "Parent mode" on the level map unlocks every level for previewing.

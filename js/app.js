@@ -1,8 +1,9 @@
 /* Viraj's Math Quest: game engine.
    Topics register themselves on window.VQ_TOPICS (see js/topics/). */
 (function () {
-  const QUESTIONS = 5;            // questions per level
-  const PASS = 4;                 // correct answers needed to clear a level
+  const QUESTIONS = 10;           // questions per level
+  const PASS = 8;                 // correct answers needed to clear a level (80%)
+  const SILVER = 9;               // 2 stars from here; 3 stars = all right with no hints
   const STORE = 'virajQuest.v1';
 
   /* The four areas match the i-Ready / district score report. `focus` marks the area
@@ -128,10 +129,21 @@
 
   /* ---------- playing a level ---------- */
   function makeQuestions(L) {
-    const out = []; let pool = [];
+    // Cycle through the level's question types so they mix evenly, and re-roll
+    // any question that repeats one already in this set (same text and picture).
+    const key = q => q.prompt + (q.fig || '') + (q.choices ? q.choices.slice().sort().join('|') : '');
+    const out = [], seen = new Set(); let pool = [];
     while (out.length < QUESTIONS) {
       if (!pool.length) pool = L.variants.slice().sort(() => Math.random() - 0.5);
-      out.push(pool.pop()());
+      const v = pool.pop();
+      let q, tries = 0;
+      do { q = v(); tries++; } while (seen.has(key(q)) && tries < 25);
+      if (seen.has(key(q))) {
+        // this type has run out of new versions; try the other types before allowing a repeat
+        for (const w of L.variants) { const r = w(); if (!seen.has(key(r))) { q = r; break; } }
+      }
+      seen.add(key(q));
+      out.push(q);
     }
     return out;
   }
@@ -216,7 +228,7 @@
     }
 
     function results() {
-      const stars = run.right === QUESTIONS ? (run.hints === 0 ? 3 : 2) : run.right >= PASS ? 1 : 0;
+      const stars = run.right === QUESTIONS && run.hints === 0 ? 3 : run.right >= SILVER ? 2 : run.right >= PASS ? 1 : 0;
       const passed = stars > 0;
       const p = prog(t.id);
       const best = Math.max(p.stars[li] || 0, stars);
@@ -226,8 +238,8 @@
       const msg = !passed
         ? `You got ${run.right} of ${QUESTIONS}. You need ${PASS} to unlock level ${li + 2}. The questions change every time, so try again.`
         : stars === 3 ? 'Every answer right with no hints. That is the full 3 stars.'
-        : stars === 2 ? 'All 5 right. Try it again without hints for 3 stars.'
-        : `You got ${run.right} of ${QUESTIONS}. Get all 5 for more stars.`;
+        : stars === 2 ? `You got ${run.right} of ${QUESTIONS}. Get all ${QUESTIONS} right with no hints for 3 stars.`
+        : `You got ${run.right} of ${QUESTIONS}. Get ${SILVER} or more for 2 stars.`;
       go(`<section class="result ${passed ? 'win' : 'lose'}">
             <p class="eyebrow">Level ${li + 1} · ${L.title}</p>
             <h1>${title}</h1>
