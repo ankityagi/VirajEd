@@ -150,5 +150,19 @@ window.Draw = (function () {
     return svg(H, b, alt || title);
   }
 
-  return { figure, bars, linePlot, picto };
+  // Fraction bars: rows of equal parts, first `shaded` parts filled.
+  function fracBars({ rows, alt }) {
+    const L = rows.some(r => r.label) ? 64 : 14, Rm = 14, rowH = 40, gap = 14, H = 16 + rows.length * (rowH + gap);
+    let b = '';
+    rows.forEach((r, i) => {
+      const y = 12 + i * (rowH + gap), w = (W - L - Rm) / r.parts;
+      if (r.label) b += t(L - 10, y + rowH / 2, r.label, 'tkf', 'end');
+      for (let k = 0; k < r.parts; k++) {
+        b += `<rect class="fb${k < r.shaded ? ' on' : ''}" x="${(L + k * w).toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${rowH}"/>`;
+      }
+    });
+    return svg(H, b, alt || 'Fraction bars');
+  }
+
+  return { figure, bars, linePlot, picto, fracBars };
 })();

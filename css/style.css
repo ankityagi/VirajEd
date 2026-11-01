@@ -260,3 +260,11 @@ h2 { font-size: 1.35rem; font-weight: 700; }
 .dtable th { background: var(--paper); font-family: var(--body); }
 .dtable td:last-child { text-align: right; }
 .fig .tkf { font: 700 17px var(--body); fill: var(--ink); }
+
+/* ---------- fractions ---------- */
+.fig .fb { fill: var(--card); stroke: var(--ink); stroke-width: 2; }
+.fig .fb.on { fill: var(--pencil); }
+.fr { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.05; font-family: var(--mono); font-weight: 700; font-size: .9em; margin: 0 .12em; }
+.fr > span:first-child { border-bottom: 2px solid currentColor; padding: 0 .15em; }
+.choice .fr { font-size: 1em; }
+.feedback .fr, .hinttext .fr { font-size: .95em; }
