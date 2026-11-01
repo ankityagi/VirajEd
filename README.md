@@ -1,0 +1,45 @@
+# Viraj's Math Quest
+
+A small practice site for Viraj. Each tile on the home screen is one topic. Each topic has
+**10 levels** that get harder as you go, with 5 fresh random questions per level.
+
+- Get **4 of 5** right to unlock the next level.
+- Stars: 5/5 with no hints = 3 stars, 5/5 with a hint = 2 stars, 4/5 = 1 star.
+- XP: +10 per correct answer (+5 if a hint was used).
+- Progress is saved in the browser (localStorage).
+- "Parent mode" on the level map unlocks every level for previewing.
+
+## Run it
+
+It's a static site, with no build step. Open `index.html` in a browser, or serve the folder:
+
+```sh
+python3 -m http.server 8000
+```
+
+It also works as-is on GitHub Pages.
+
+## Layout
+
+```
+index.html                 page shell
+css/style.css              all styling (light + dark)
+js/draw.js                 SVG helper for labelled shapes
+js/topics/measurement.js   Measurement & Area: 10 levels of question generators
+js/app.js                  game engine: home tiles, level map, play loop, results
+```
+
+## Adding a topic
+
+Create `js/topics/<topic>.js` that pushes onto `window.VQ_TOPICS`
+(copy the shape of `measurement.js`), then add a `<script>` tag for it in `index.html`
+before `js/app.js`. Each level is `{ title, skill, variants: [fn, ...] }` and each
+variant returns a new random question:
+
+```js
+{ prompt, fig?, answer: 42, unit: 'sq cm', hint, explain }           // typed answer
+{ prompt, choices: ['Area', 'Perimeter'], answer: 0, hint, explain }  // multiple choice
+```
+
+Topics listed as "Coming soon" live in the `COMING` list at the top of `js/app.js`;
+a real topic with the same `id` replaces its placeholder automatically.
