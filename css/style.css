@@ -268,3 +268,9 @@ h2 { font-size: 1.35rem; font-weight: 700; }
 .fr > span:first-child { border-bottom: 2px solid currentColor; padding: 0 .15em; }
 .choice .fr { font-size: 1em; }
 .feedback .fr, .hinttext .fr { font-size: .95em; }
+
+/* ---------- area model ---------- */
+.dtable.area th, .dtable.area td { text-align: center; min-width: 64px; }
+.dtable.area th:first-child { color: var(--muted); }
+.dtable.area td { background: var(--shape); }
+.qcell { color: var(--coral); font-size: 1.2em; }
