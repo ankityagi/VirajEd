@@ -20,6 +20,31 @@ It's a static site, with no build step. Open `index.html` in a browser, or serve
 python3 -m http.server 8000
 ```
 
+## Logins and the progress log
+
+- **Login:** players are listed in `PLAYERS` in `js/app.js` (Viraj is code `p1`). Each picks a
+  PIN on first login and stays logged in on that device until *Log out*. A parent can reset a
+  forgotten PIN.
+- **Progress log:** every level played (finished, or quit after at least one answer) is saved as
+  one JSON text file in the public repo **ankityagi/mathquest-progress**, at
+  `players/p1/sessions/YYYY/MM/<time>-<quest>-L<level>.json`. The files hold only the player
+  code, never a name: each answer, right or wrong, seconds taken, and whether a hint was used.
+- **Saving** needs a fine-grained GitHub token, entered once on the child's device under
+  *Parent → Settings*. Until then, and whenever offline, levels wait in a queue on the device
+  and upload later. **Reading** needs no token, so the report works on any device.
+- **Report** (*Parent* link at the bottom of every page): levels played, accuracy, typical time
+  per question, what to work on next (question types under 75% correct or 1.6× slower than his
+  typical time), strong and quick types, results by area, tries per level, recent sessions.
+  Logging in on a new device brings stars and XP over from the log.
+
+### One-time setup for saving
+
+1. Create a **public** repo `ankityagi/mathquest-progress` (tick *Add a README* so it has a `main` branch).
+2. GitHub → Settings → Developer settings → **Fine-grained tokens** → *Generate new token*:
+   repository access **Only select repositories → mathquest-progress**, permission
+   **Contents: Read and write**, and an expiry date.
+3. On Viraj's device: **Parent** → **Settings** → paste the token → **Save and test**.
+
 ## Hosting: viraj.ankityagi.online
 
 The site is published with GitHub Pages, the same way as games.ankityagi.online.

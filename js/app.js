@@ -37,19 +37,30 @@
   };
   const icon = n => `<svg class="ic" viewBox="0 0 48 48" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
-  /* ---------- saved progress ---------- */
-  function load() {
-    try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && s.topics) return s; } catch (e) { /* ignore */ }
-    return { xp: 0, topics: {} };
+  /* ---------- players and saved progress ----------
+     Each player has a short code. Only the code goes into the synced progress files,
+     so the data is anonymous; the name is shown on this site only. */
+  const PLAYERS = [{ id: 'p1', name: 'Viraj' }];
+  const K_CURRENT = 'vq.current', K_PINS = 'vq.pins';
+  const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } };
+  const stateKey = id => (id === 'p1' ? STORE : 'vq.state.' + id); // p1 keeps the original key so old progress carries over
+  const pins = () => lsGet(K_PINS, {});
+  const setPin = (key, hash) => { const p = pins(); p[key] = hash; lsSet(K_PINS, p); };
+  let player = null;
+  function load(id) {
+    const s = lsGet(stateKey(id), null);
+    const st = s && s.topics ? s : { xp: 0, topics: {} };
+    if (st.pinHash) { if (!pins().parent) setPin('parent', st.pinHash); delete st.pinHash; } // parent PIN used to live here
+    return st;
   }
-  let state = load();
-  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* ignore */ } }
+  let state = { xp: 0, topics: {} };
+  function save() { if (player) lsSet(stateKey(player.id), state); }
   const prog = id => (state.topics[id] = state.topics[id] || { stars: {} });
   const starsFor = (t, i) => prog(t.id).stars[i] || 0;
   // Parent mode unlocks every level. It is guarded by a parent PIN and lasts only until the
   // page is reloaded. Older saves kept it switched on in storage; drop that so it starts off.
   let parentMode = false;
-  if ('unlockAll' in state) { delete state.unlockAll; save(); }
   const unlocked = (t, i) => parentMode || i === 0 || starsFor(t, i - 1) > 0;
 
   /* ---------- parent PIN ----------
@@ -63,17 +74,19 @@
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
   }
   // mode 'set' asks for a new PIN twice; 'enter' checks it. onOk runs after success.
-  function pinDialog(mode, onOk) {
-    const setting = mode === 'set';
+  // opts.key picks whose PIN ('parent' or a player code); opts.title/text/forgot customise it.
+  function pinDialog(mode, onOk, opts = {}) {
+    const setting = mode === 'set', key = opts.key || 'parent';
     const wrap = document.createElement('div');
     wrap.className = 'modal';
     wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pin-h">
-        <h2 id="pin-h">${setting ? 'Set a parent PIN' : 'Parent PIN'}</h2>
-        <p class="lede">${setting ? 'Choose 4 to 8 digits. You will need it to turn on Parent mode on this device.' : 'Enter the PIN to unlock every level.'}</p>
+        <h2 id="pin-h">${opts.title || (setting ? 'Set a parent PIN' : 'Parent PIN')}</h2>
+        <p class="lede">${opts.text || (setting ? 'Choose 4 to 8 digits. You will need it for Parent mode and the progress report on this device.' : 'Enter the parent PIN.')}</p>
         <label class="sr" for="pin1">PIN</label>
         <input id="pin1" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN">
         ${setting ? '<label class="sr" for="pin2">Type it again</label><input id="pin2" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="Type it again">' : ''}
         <p class="pin-err" id="pin-err" hidden></p>
+        ${opts.forgot ? '<button class="link small" type="button" id="pin-forgot">Forgot your PIN? Ask a parent</button>' : ''}
         <div class="actions"><button class="btn" type="button" id="pin-cancel">Cancel</button><button class="btn primary" type="button" id="pin-ok">${setting ? 'Save PIN' : 'Unlock'}</button></div>
       </div>`;
     document.body.appendChild(wrap);
@@ -85,14 +98,15 @@
       if (setting) {
         if (!/^\d{4,8}$/.test(a)) return fail('Use 4 to 8 digits.');
         if (a !== $('#pin2').value.trim()) return fail('The two PINs do not match.');
-        state.pinHash = pinHash(a); save(); close(); onOk();
+        setPin(key, pinHash(a)); close(); onOk();
       } else {
-        if (pinHash(a) !== state.pinHash) return fail('That PIN is not right.');
+        if (pinHash(a) !== pins()[key]) return fail('That PIN is not right.');
         close(); onOk();
       }
     };
     $('#pin-ok').addEventListener('click', ok);
     $('#pin-cancel').addEventListener('click', close);
+    if (opts.forgot) $('#pin-forgot').addEventListener('click', () => { close(); opts.forgot(); });
     wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
     wrap.querySelectorAll('.pin').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } if (e.key === 'Escape') close(); }));
     $('#pin1').focus();
@@ -103,7 +117,13 @@
   const app = document.getElementById('app');
   const xpEl = document.getElementById('xp');
   const starRow = (n, max = 3) => `<span class="stars" aria-label="${n} of ${max} stars">${'★'.repeat(n)}<span class="off">${'★'.repeat(max - n)}</span></span>`;
-  function showXP() { xpEl.textContent = `${state.xp} XP`; }
+  function showXP() {
+    xpEl.textContent = `${state.xp} XP`;
+    xpEl.hidden = !player;
+    const who = document.getElementById('who');
+    who.innerHTML = player ? `${player.name} · <button class="link" id="logout">Log out</button>` : '';
+    if (player) document.getElementById('logout').addEventListener('click', logout);
+  }
 
   function go(html, focusSel) {
     app.innerHTML = html;
@@ -114,6 +134,7 @@
 
   /* ---------- home ---------- */
   function home() {
+    if (!player) return login();
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
     const tile = t => {
       if (!t.live) {
@@ -141,7 +162,7 @@
     }).join('');
     go(`<section class="hello">
           <p class="eyebrow">Pick a quest</p>
-          <h1>Hey Viraj, ready to level up?</h1>
+          <h1>Hey ${player.name}, ready to level up?</h1>
           <p class="lede">Every quest has 10 levels, and every level has ${QUESTIONS} questions. Get ${PASS} of ${QUESTIONS} right to unlock the next level. Each level is harder than the last.</p>
         </section>
         ${sections}`);
@@ -176,7 +197,7 @@
       '.lvl.next');
     app.querySelector('#back').addEventListener('click', home);
     const on = app.querySelector('#pm-on'), off = app.querySelector('#pm-off'), change = app.querySelector('#pm-change');
-    if (on) on.addEventListener('click', () => pinDialog(state.pinHash ? 'enter' : 'set', () => { parentMode = true; map(t); }));
+    if (on) on.addEventListener('click', () => parentGate(() => { parentMode = true; map(t); }));
     if (off) off.addEventListener('click', () => { parentMode = false; map(t); });
     if (change) change.addEventListener('click', () => pinDialog('set', () => map(t)));
     app.querySelectorAll('.lvl:not(.locked)').forEach(b => b.addEventListener('click', () => play(t, +b.dataset.i)));
@@ -205,7 +226,7 @@
 
   function play(t, li) {
     const L = t.levels[li];
-    const run = { qs: makeQuestions(L), i: 0, right: 0, hints: 0, log: [] };
+    const run = { qs: makeQuestions(L), i: 0, right: 0, hints: 0, log: [], qlog: [], started: new Date().toISOString() };
     question();
 
     function dots() {
@@ -237,7 +258,8 @@
             <div class="hintrow"><button class="link" id="hint">💡 Need a hint?</button><p class="hinttext" id="hinttext" hidden>${q.hint}</p></div>
             <div class="feedback" id="fb" hidden></div>
           </article>`, '#ans, .choice');
-      app.querySelector('#quit').addEventListener('click', () => map(t));
+      q.t0 = performance.now();
+      app.querySelector('#quit').addEventListener('click', () => { if (run.qlog.length) record(t, li, run, false, 0); map(t); });
       app.querySelector('#hint').addEventListener('click', e => {
         const ht = app.querySelector('#hinttext');
         if (ht.hidden) { ht.hidden = false; q.usedHint = true; e.target.hidden = true; }
@@ -275,6 +297,11 @@
         app.querySelector('.field').classList.add(ok ? 'right' : 'wrong');
       }
       const correct = q.choices ? q.choices[q.answer] : q.answerText ? `${q.answerText} ${q.unit || ''}` : (q.unit === 'dollars' ? '$' + q.answer.toFixed(Number.isInteger(q.answer) ? 0 : 2) : `${q.answer.toLocaleString('en-US')} ${q.unit || ''}`);
+      run.qlog.push({
+        n: run.i + 1, type: qType(q.prompt), prompt: plain(q.prompt).slice(0, 220),
+        answer: plain(correct).trim(), given: q.choices ? plain(q.choices[v]) : String(app.querySelector('#ans').value).trim().slice(0, 40),
+        correct: ok, hint: !!q.usedHint, seconds: Math.min(600, Math.round((performance.now() - q.t0) / 100) / 10)
+      });
       const fb = app.querySelector('#fb');
       fb.className = 'feedback ' + (ok ? 'good' : 'bad');
       fb.innerHTML = `<p class="verdict">${ok ? pick(['Nailed it!', 'Correct!', 'Nice work!', 'Exactly right!']) + ` <span class="plus">+${q.usedHint ? 5 : 10} XP</span>` : `Not quite. The answer is <b>${correct}</b>.`}</p>
@@ -293,6 +320,7 @@
       const p = prog(t.id);
       const best = Math.max(p.stars[li] || 0, stars);
       p.stars[li] = best; save();
+      const saving = record(t, li, run, true, stars);
       const hasNext = li + 1 < t.levels.length;
       const title = !passed ? 'So close!' : li + 1 === t.levels.length ? 'Quest complete!' : stars === 3 ? 'Perfect level!' : 'Level cleared!';
       const msg = !passed
@@ -310,7 +338,12 @@
               <button class="btn ${passed && hasNext ? '' : 'primary'}" id="again">${passed ? 'Play again' : 'Try again'}</button>
               <button class="btn" id="tomap">Level map</button>
             </div>
+            <p class="sync-note" id="sync-note">Saving your progress…</p>
           </section>`, '.actions .primary');
+      saving.then(r => {
+        const n = document.getElementById('sync-note'); if (!n) return;
+        n.textContent = r.error === 'not set up' ? 'Progress saved on this device.' : r.error ? 'Progress saved on this device. It will upload next time.' : 'Progress saved.';
+      });
       if (passed) confetti();
       const nl = app.querySelector('#nextlvl'); if (nl) nl.addEventListener('click', () => play(t, li + 1));
       app.querySelector('#again').addEventListener('click', () => play(t, li));
@@ -328,6 +361,131 @@
     m = s.match(/^(\d+)\s*\/\s*(\d+)$/);
     if (m) return m[1] / m[2];
     return parseFloat(s.replace(/\s/g, ''));
+  }
+
+  /* ---------- progress records ---------- */
+  const plain = html => {
+    const d = document.createElement('div');
+    d.innerHTML = String(html).replace(/<span class="fr"><span>([^<]*)<\/span><span>([^<]*)<\/span><\/span>/g, ' $1/$2 ').replace(/<br\s*\/?>|<\/tr>|<\/p>/g, ' ');
+    return d.textContent.replace(/\s+/g, ' ').trim();
+  };
+  // question "type": the wording with numbers taken out, so the same kind of question groups together
+  const qType = html => plain(html).replace(/\$?\d[\d,]*(\.\d+)?(\s*\/\s*\d+)?|[½¼¾⅛⅜⅝⅞]/g, '#').replace(/(#\s*){2,}/g, '# ').slice(0, 90);
+  const sessionsKey = () => 'vq.sessions.' + player.id;
+  function record(t, li, run, completed, stars) {
+    const now = new Date(), id = now.toISOString().replace(/[:.]/g, '-') + '-' + Math.random().toString(36).slice(2, 6);
+    const s = {
+      v: 1, id, player: player.id, topic: t.id, level: li + 1, levelTitle: t.levels[li].title,
+      startedAt: run.started, endedAt: now.toISOString(), completed, correct: run.right, total: QUESTIONS,
+      stars, hints: run.hints, seconds: Math.round(run.qlog.reduce((a, q) => a + q.seconds, 0)), questions: run.qlog
+    };
+    const local = lsGet(sessionsKey(), []); local.push(s); lsSet(sessionsKey(), local.slice(-400));
+    const path = `players/${player.id}/sessions/${id.slice(0, 4)}/${id.slice(5, 7)}/${id}-${t.id}-L${li + 1}${completed ? '' : '-quit'}.json`;
+    return window.VQSync ? VQSync.enqueue(path, s) : Promise.resolve({ error: 'not set up' });
+  }
+  // sessions on this device plus any already uploaded (e.g. played on another device)
+  async function allSessions() {
+    const local = lsGet(sessionsKey(), []);
+    let remote = [], note = '';
+    try { remote = await VQSync.sessions(player.id); }
+    catch (e) { note = "Couldn't load the online log just now, so this shows this device only."; }
+    if (!remote.length && !note) note = '';
+    const seen = new Set(), out = [];
+    remote.concat(local).forEach(s => { if (s && !seen.has(s.id)) { seen.add(s.id); out.push(s); } });
+    return { sessions: out, note };
+  }
+  // bring stars and XP over from levels played on other devices
+  async function restore() {
+    try {
+      const remote = await VQSync.sessions(player.id);
+      let changed = false, xp = 0;
+      remote.forEach(s => {
+        (s.questions || []).forEach(q => { if (q.correct) xp += q.hint ? 5 : 10; });
+        if (!s.completed || !s.stars) return;
+        const pr = prog(s.topic), i = s.level - 1;
+        if ((pr.stars[i] || 0) < s.stars) { pr.stars[i] = s.stars; changed = true; }
+      });
+      if (xp > state.xp) { state.xp = xp; changed = true; }
+      if (changed) { save(); showXP(); }
+    } catch (e) { /* offline: keep local progress */ }
+  }
+
+  /* ---------- login ---------- */
+  function login() {
+    player = null; showXP();
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    go(`<section class="hello">
+          <p class="eyebrow">Math Quest</p>
+          <h1>Who's playing?</h1>
+          <p class="lede">Log in with your PIN so your stars and progress are saved.</p>
+        </section>
+        <div class="tiles players">${PLAYERS.map(p => `<button class="tile live player" data-p="${p.id}"><span class="avatar">${p.name[0]}</span><h2>${p.name}</h2><span class="tag go">${pins()[p.id] ? 'Log in' : 'Start'}</span></button>`).join('')}</div>`, '.player');
+    app.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
+      const p = PLAYERS.find(x => x.id === b.dataset.p);
+      const reset = () => parentGate(() => pinDialog('set', () => startAs(p), { key: p.id, title: `New PIN for ${p.name}`, text: 'Choose 4 to 8 digits for him to log in with.' }));
+      if (pins()[p.id]) pinDialog('enter', () => startAs(p), { key: p.id, title: `Hi ${p.name}!`, text: 'Type your PIN.', forgot: reset });
+      else pinDialog('set', () => startAs(p), { key: p.id, title: `Hi ${p.name}! Make a PIN`, text: 'Pick 4 to 8 digits you can remember. You will use it to log in.' });
+    }));
+  }
+  function startAs(p, topic) {
+    player = p; state = load(p.id); lsSet(K_CURRENT, p.id); parentMode = false; showXP();
+    topic ? map(topic) : home();
+    if (window.VQSync) { VQSync.flush(); restore(); }
+  }
+  function logout() { lsSet(K_CURRENT, null); parentMode = false; login(); }
+
+  /* ---------- parent area: report and settings ---------- */
+  function parentGate(onOk) { pinDialog(pins().parent ? 'enter' : 'set', onOk); }
+  function parentPage(tab = 'report') {
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    const who = player || PLAYERS[0], c = VQSync.config();
+    go(`<nav class="crumbs"><button class="link" id="back">← Back to the game</button></nav>
+        <section class="maphead"><p class="eyebrow">Parent</p><h1>${who.name}'s progress</h1></section>
+        <div class="tabs" role="tablist"><button class="tab${tab === 'report' ? ' on' : ''}" data-tab="report">Report</button><button class="tab${tab === 'settings' ? ' on' : ''}" data-tab="settings">Settings</button></div>
+        ${tab === 'report' ? '<div id="report"><p class="muted">Loading the progress log…</p></div>' : `
+        <section class="panel">
+          <h2>Save progress to GitHub</h2>
+          <p class="muted small">Each level is saved as a small text file in <b>${c.repo}</b> under the code <b>${who.id}</b> (no names). Reading the report needs nothing; saving needs an access token, entered here once on ${who.name}'s device.</p>
+          <label for="s-repo">Data repo</label><input id="s-repo" class="txt" value="${c.repo}" autocomplete="off">
+          <label for="s-branch">Branch</label><input id="s-branch" class="txt" value="${c.branch}" autocomplete="off">
+          <label for="s-token">Access token</label><input id="s-token" class="txt" type="password" value="${c.token}" autocomplete="off" placeholder="github_pat_…">
+          <div class="actions left"><button class="btn primary" type="button" id="s-save">Save and test</button><button class="btn" type="button" id="s-flush">Upload now</button></div>
+          <p class="pin-msg" id="s-msg">${VQSync.pending() ? `${VQSync.pending()} level(s) waiting to upload.` : ''}</p>
+        </section>
+        <section class="panel">
+          <h2>PINs</h2>
+          <div class="actions left"><button class="btn" type="button" id="p-parent">Change parent PIN</button><button class="btn" type="button" id="p-kid">Reset ${who.name}'s PIN</button></div>
+        </section>`}`);
+    app.querySelector('#back').addEventListener('click', () => (player ? home() : login()));
+    app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => parentPage(b.dataset.tab)));
+    if (tab === 'report') {
+      const prev = player; player = who;
+      allSessions().then(({ sessions, note }) => {
+        player = prev;
+        const el = document.getElementById('report'); if (!el) return;
+        const pend = VQSync.pending();
+        VQReport.render(el, sessions, TOPICS.filter(t => t.live), AREAS,
+          `<p class="muted small">${note ? note + ' ' : ''}${pend ? `${pend} level(s) on this device are still waiting to upload.` : ''}</p>`);
+      });
+    } else {
+      const msg = app.querySelector('#s-msg');
+      app.querySelector('#s-save').addEventListener('click', async () => {
+        const cfg = { repo: app.querySelector('#s-repo').value.trim(), branch: app.querySelector('#s-branch').value.trim() || 'main', token: app.querySelector('#s-token').value.trim() };
+        msg.textContent = 'Checking…';
+        const r = await VQSync.test(cfg);
+        if (r.ok) VQSync.setConfig(cfg);
+        msg.textContent = r.ok ? r.message + ' Saved.' : r.message;
+        msg.className = 'pin-msg ' + (r.ok ? 'good' : 'bad');
+        if (r.ok) { const f = await VQSync.flush(); if (f.sent) msg.textContent += ` Uploaded ${f.sent} level(s).`; }
+      });
+      app.querySelector('#s-flush').addEventListener('click', async () => {
+        msg.textContent = 'Uploading…';
+        const f = await VQSync.flush();
+        msg.textContent = f.error === 'not set up' ? 'Add a token first.' : f.error ? `Couldn't upload (${f.error}). ${f.pending} waiting.` : `Uploaded ${f.sent}. Nothing waiting.`;
+      });
+      app.querySelector('#p-parent').addEventListener('click', () => pinDialog('set', () => { msg.textContent = 'Parent PIN changed.'; }));
+      app.querySelector('#p-kid').addEventListener('click', () => pinDialog('set', () => { msg.textContent = `${who.name}'s PIN changed.`; }, { key: who.id, title: `New PIN for ${who.name}` }));
+    }
   }
 
   /* ---------- confetti ---------- */
@@ -349,7 +507,8 @@
 
   /* ---------- boot ---------- */
   document.getElementById('home').addEventListener('click', home);
-  showXP();
+  document.getElementById('parent-link').addEventListener('click', () => parentGate(() => parentPage('report')));
   const start = TOPICS.find(t => t.live && '#' + t.id === location.hash);
-  start ? map(start) : home();
+  const current = PLAYERS.find(p => p.id === lsGet(K_CURRENT, null));
+  current ? startAs(current, start) : login();
 })();
