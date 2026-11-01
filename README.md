@@ -32,6 +32,7 @@ js/topics/graphs.js        Graphs & Line Plots: 10 levels (bar/picture graphs, t
 js/topics/fractions.js     Fractions: 10 levels (equivalent, compare, add/subtract, mixed numbers, ×, tenths/hundredths)
 js/topics/multiply.js      Big Multiplication: 10 levels (×10s, area model, 2-digit × 2-digit, long division, remainders)
 js/topics/angles.js        Angles & Lines: 10 levels (angle types, lines/rays, protractor, turns, missing angles, triangles)
+js/topics/patterns.js      Patterns & Rules: 10 levels (sequences, in/out tables, times as many, solve for n, word problems)
 js/app.js                  game engine: home tiles, level map, play loop, results
 ```
 

@@ -293,3 +293,6 @@ h2 { font-size: 1.35rem; font-weight: 700; }
 .qcount { margin-top: 3px; font: 700 .72rem var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-blue); }
 .lvl.locked .qcount { color: var(--muted); }
 .build { text-align: center; font: 600 .7rem var(--mono); color: var(--muted); letter-spacing: .06em; padding-block: 0 24px; }
+.dtable.io th, .dtable.io td { text-align: center; min-width: 52px; padding: 6px 10px; }
+.dtable.io th { color: var(--muted); }
+.prompt .qcell { font-family: var(--mono); }
