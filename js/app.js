@@ -40,13 +40,63 @@
   /* ---------- saved progress ---------- */
   function load() {
     try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && s.topics) return s; } catch (e) { /* ignore */ }
-    return { xp: 0, topics: {}, unlockAll: false };
+    return { xp: 0, topics: {} };
   }
   let state = load();
   function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* ignore */ } }
   const prog = id => (state.topics[id] = state.topics[id] || { stars: {} });
   const starsFor = (t, i) => prog(t.id).stars[i] || 0;
-  const unlocked = (t, i) => state.unlockAll || i === 0 || starsFor(t, i - 1) > 0;
+  // Parent mode unlocks every level. It is guarded by a parent PIN and lasts only until the
+  // page is reloaded. Older saves kept it switched on in storage; drop that so it starts off.
+  let parentMode = false;
+  if ('unlockAll' in state) { delete state.unlockAll; save(); }
+  const unlocked = (t, i) => parentMode || i === 0 || starsFor(t, i - 1) > 0;
+
+  /* ---------- parent PIN ----------
+     Kid-proof, not real security: the site is public static code, so the PIN is chosen on the
+     device the first time and only a hash of it is stored there (with the progress). */
+  function pinHash(pin) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57; const s = 'vq-pin:' + pin;
+    for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  // mode 'set' asks for a new PIN twice; 'enter' checks it. onOk runs after success.
+  function pinDialog(mode, onOk) {
+    const setting = mode === 'set';
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pin-h">
+        <h2 id="pin-h">${setting ? 'Set a parent PIN' : 'Parent PIN'}</h2>
+        <p class="lede">${setting ? 'Choose 4 to 8 digits. You will need it to turn on Parent mode on this device.' : 'Enter the PIN to unlock every level.'}</p>
+        <label class="sr" for="pin1">PIN</label>
+        <input id="pin1" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN">
+        ${setting ? '<label class="sr" for="pin2">Type it again</label><input id="pin2" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="Type it again">' : ''}
+        <p class="pin-err" id="pin-err" hidden></p>
+        <div class="actions"><button class="btn" type="button" id="pin-cancel">Cancel</button><button class="btn primary" type="button" id="pin-ok">${setting ? 'Save PIN' : 'Unlock'}</button></div>
+      </div>`;
+    document.body.appendChild(wrap);
+    const $ = sel => wrap.querySelector(sel), err = $('#pin-err');
+    const close = () => wrap.remove();
+    const fail = msg => { err.textContent = msg; err.hidden = false; $('#pin1').value = ''; if ($('#pin2')) $('#pin2').value = ''; $('#pin1').focus(); };
+    const ok = () => {
+      const a = $('#pin1').value.trim();
+      if (setting) {
+        if (!/^\d{4,8}$/.test(a)) return fail('Use 4 to 8 digits.');
+        if (a !== $('#pin2').value.trim()) return fail('The two PINs do not match.');
+        state.pinHash = pinHash(a); save(); close(); onOk();
+      } else {
+        if (pinHash(a) !== state.pinHash) return fail('That PIN is not right.');
+        close(); onOk();
+      }
+    };
+    $('#pin-ok').addEventListener('click', ok);
+    $('#pin-cancel').addEventListener('click', close);
+    wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+    wrap.querySelectorAll('.pin').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } if (e.key === 'Escape') close(); }));
+    $('#pin1').focus();
+  }
   const cleared = t => t.levels.filter((_, i) => starsFor(t, i) > 0).length;
   const totalStars = t => t.levels.reduce((s, _, i) => s + starsFor(t, i), 0);
 
@@ -120,10 +170,15 @@
           <div class="ruler" aria-hidden="true">${ticks}</div>
         </section>
         <div class="levels">${cards}</div>
-        <p class="parent"><label><input type="checkbox" id="unlockall" ${state.unlockAll ? 'checked' : ''}> Parent mode: unlock every level</label></p>`,
+        <p class="parent">${parentMode
+          ? `<b>Parent mode is on.</b> Every level is unlocked until you turn it off or reload the page. <button class="link" id="pm-off">Turn off</button> · <button class="link" id="pm-change">Change PIN</button>`
+          : `<button class="link" id="pm-on">🔒 Parent mode</button> unlocks every level (needs the parent PIN).`}</p>`,
       '.lvl.next');
     app.querySelector('#back').addEventListener('click', home);
-    app.querySelector('#unlockall').addEventListener('change', e => { state.unlockAll = e.target.checked; save(); map(t); });
+    const on = app.querySelector('#pm-on'), off = app.querySelector('#pm-off'), change = app.querySelector('#pm-change');
+    if (on) on.addEventListener('click', () => pinDialog(state.pinHash ? 'enter' : 'set', () => { parentMode = true; map(t); }));
+    if (off) off.addEventListener('click', () => { parentMode = false; map(t); });
+    if (change) change.addEventListener('click', () => pinDialog('set', () => map(t)));
     app.querySelectorAll('.lvl:not(.locked)').forEach(b => b.addEventListener('click', () => play(t, +b.dataset.i)));
   }
 

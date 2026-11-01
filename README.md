@@ -8,7 +8,9 @@ A small practice site for Viraj. Each tile on the home screen is one topic. Each
 - Stars: 10/10 with no hints = 3 stars, 9 or more = 2 stars, 8 = 1 star.
 - XP: +10 per correct answer (+5 if a hint was used).
 - Progress is saved in the browser (localStorage).
-- "Parent mode" on the level map unlocks every level for previewing.
+- "Parent mode" on the level map unlocks every level for previewing. It needs a parent PIN,
+  chosen on the device the first time (only a hash is stored, with the progress), and it
+  switches off again when the page is reloaded. This keeps a child out; it is not real security.
 
 ## Run it
 
