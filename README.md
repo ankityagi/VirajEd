@@ -18,16 +18,16 @@ It's a static site, with no build step. Open `index.html` in a browser, or serve
 python3 -m http.server 8000
 ```
 
-## Hosting: math.ankityagi.online
+## Hosting: viraj.ankityagi.online
 
 The site is published with GitHub Pages, the same way as games.ankityagi.online.
 `.github/workflows/deploy.yml` uploads `index.html`, `css/` and `js/` on every push,
 and `CNAME` names the domain. One-time setup:
 
 1. **DNS** (at the registrar for ankityagi.online): add a `CNAME` record,
-   host `math`, value `ankityagi.github.io` — the same kind of record as `games`.
+   host `viraj`, value `ankityagi.github.io` — the same kind of record as `games`.
 2. **GitHub → VirajEd → Settings → Pages**: set *Source* to **GitHub Actions**,
-   enter `math.ankityagi.online` as the custom domain, and tick *Enforce HTTPS*
+   enter `viraj.ankityagi.online` as the custom domain, and tick *Enforce HTTPS*
    once the certificate is issued.
 3. This repo is **private**. Pages on a private repo needs a paid GitHub plan
    (Pro or higher); otherwise make the repo public. The published site itself

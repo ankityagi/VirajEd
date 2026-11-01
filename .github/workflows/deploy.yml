@@ -1,6 +1,6 @@
 name: Deploy to GitHub Pages
 
-# Publishes the site to math.ankityagi.online (same setup as games.ankityagi.online).
+# Publishes the site to viraj.ankityagi.online (same setup as games.ankityagi.online).
 # The site is plain HTML/CSS/JS, so there is no build step: the repo root is uploaded as-is.
 on:
   push:
