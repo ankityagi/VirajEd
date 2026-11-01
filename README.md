@@ -24,12 +24,13 @@ It also works as-is on GitHub Pages.
 ```
 index.html                 page shell
 css/style.css              all styling (light + dark)
-js/draw.js                 SVG helpers: labelled shapes, bar graphs, line plots, picture graphs, fraction bars
+js/draw.js                 SVG helpers: labelled shapes, bar graphs, line plots, picture graphs, fraction bars, angles, protractor, clock, lines
 js/topics/measurement.js   Measurement & Area: 10 levels of question generators
 js/topics/time-money.js    Time & Money: 10 levels (elapsed time, schedules, coins, change)
 js/topics/graphs.js        Graphs & Line Plots: 10 levels (bar/picture graphs, tables, fraction line plots)
 js/topics/fractions.js     Fractions: 10 levels (equivalent, compare, add/subtract, mixed numbers, ×, tenths/hundredths)
 js/topics/multiply.js      Big Multiplication: 10 levels (×10s, area model, 2-digit × 2-digit, long division, remainders)
+js/topics/angles.js        Angles & Lines: 10 levels (angle types, lines/rays, protractor, turns, missing angles, triangles)
 js/app.js                  game engine: home tiles, level map, play loop, results
 ```
 

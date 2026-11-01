@@ -86,7 +86,23 @@ window.Draw = (function () {
       const u1 = u(C, A), u2 = u(C, B);
       body += `<path class="ra" d="M${C[0] + u1[0]},${C[1] + u1[1]} L${C[0] + u1[0] + u2[0]},${C[1] + u1[1] + u2[1]} L${C[0] + u2[0]},${C[1] + u2[1]}"/>`;
     });
-    return `<svg viewBox="0 0 ${VW} ${VH}" role="img" aria-label="${esc(spec.alt || 'Figure')}">${body}${settle(labels)}</svg>`;
+    let vl = '';
+    if (spec.vlabels && shapes[0]) {
+      const P = shapes[0].pts.map(T), cx = P.reduce((a, p) => a + p[0], 0) / P.length, cy = P.reduce((a, p) => a + p[1], 0) / P.length;
+      spec.vlabels.forEach(({ at, text: s2 }) => {
+        // push the label along the corner's bisector; thin corners need more room
+        const i = shapes[0].pts.findIndex(p => p[0] === at[0] && p[1] === at[1]);
+        const [x, y] = T(at), A = P[(i + P.length - 1) % P.length], B = P[(i + 1) % P.length];
+        const u = q => { const d = Math.hypot(q[0] - x, q[1] - y) || 1; return [(q[0] - x) / d, (q[1] - y) / d]; };
+        const ua = u(A), ub = u(B);
+        let bx = ua[0] + ub[0], by = ua[1] + ub[1]; const bl = Math.hypot(bx, by) || 1; bx /= bl; by /= bl;
+        const half = Math.acos(Math.max(-1, Math.min(1, ua[0] * ub[0] + ua[1] * ub[1]))) / 2;
+        let dist = Math.min(80, 24 + 13 / Math.max(Math.sin(half), 0.05));
+        if (half > (50 * Math.PI) / 180) dist = -20; // very wide corner: label just outside
+        vl += `<text class="lbl ang" x="${(x + bx * dist).toFixed(1)}" y="${(y + by * dist).toFixed(1)}" text-anchor="middle" dominant-baseline="middle">${esc(s2)}</text>`;
+      });
+    }
+    return `<svg viewBox="0 0 ${VW} ${VH}" role="img" aria-label="${esc(spec.alt || 'Figure')}">${body}${settle(labels)}${vl}</svg>`;
   }
 
   /* ---------- data displays ---------- */
@@ -164,5 +180,84 @@ window.Draw = (function () {
     return svg(H, b, alt || 'Fraction bars');
   }
 
-  return { figure, bars, linePlot, picto, fracBars };
+  /* ---------- angles ---------- */
+  const rad = d => (d * Math.PI) / 180;
+  const at = (cx, cy, r, d) => [cx + r * Math.cos(rad(d)), cy - r * Math.sin(rad(d))];
+  const n1 = v => v.toFixed(1);
+  const ARROW = '<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahd" d="M0,0 L10,5 L0,10 z"/></marker></defs>';
+  function seg(a, b, cls, arrowEnd, arrowStart) {
+    return `<line class="${cls}" x1="${n1(a[0])}" y1="${n1(a[1])}" x2="${n1(b[0])}" y2="${n1(b[1])}"${arrowEnd ? ' marker-end="url(#ah)"' : ''}${arrowStart ? ' marker-start="url(#ah)"' : ''}/>`;
+  }
+  function arcPath(cx, cy, r, a1, a2, cls = 'arc') {
+    const [x1, y1] = at(cx, cy, r, a1), [x2, y2] = at(cx, cy, r, a2);
+    return `<path class="${cls}" d="M${n1(x1)},${n1(y1)} A${r},${r} 0 ${a2 - a1 > 180 ? 1 : 0} 0 ${n1(x2)},${n1(y2)}"/>`;
+  }
+  function rightMark(cx, cy, a, s = 14) {
+    const p1 = at(cx, cy, s, a), p2 = at(cx, cy, s, a + 90), c = [p1[0] + p2[0] - cx, p1[1] + p2[1] - cy];
+    return `<path class="arcmk" d="M${n1(p1[0])},${n1(p1[1])} L${n1(c[0])},${n1(c[1])} L${n1(p2[0])},${n1(p2[1])}"/>`;
+  }
+
+  /* rays: directions in degrees (counter-clockwise from east).
+     arcs: [{ from, to, label }] drawn between two directions (from < to). */
+  function angles({ rays, arcs = [], cx = 170, cy = 125, len = 100, alt }) {
+    let b = ARROW;
+    rays.forEach(d => { b += seg([cx, cy], at(cx, cy, len, d), 'ray', true); });
+    arcs.forEach((a, i) => {
+      const r = 30 + (i % 2) * 14, span = a.to - a.from;
+      b += Math.abs(span - 90) < 0.01 && !a.noMark ? rightMark(cx, cy, a.from) : arcPath(cx, cy, r, a.from, a.to);
+      if (a.label) { const [x, y] = at(cx, cy, r + (span < 40 ? 34 : 22), (a.from + a.to) / 2); b += t(x, y, a.label, 'angl'); }
+    });
+    b += `<circle class="vtx" cx="${cx}" cy="${cy}" r="4"/>`;
+    return svg(250, b, alt || 'Angle');
+  }
+
+  // Protractor with a 0° baseline ray and one ray at `deg`.
+  function protractor(deg) {
+    const cx = 170, cy = 200, R = 150;
+    let b = ARROW + `<path class="prot" d="M${cx - R},${cy} A${R},${R} 0 0 1 ${cx + R},${cy} Z"/>`;
+    for (let d = 0; d <= 180; d += 5) {
+      const inner = d % 10 ? R - 7 : R - 12;
+      b += seg(at(cx, cy, R, d), at(cx, cy, inner, d), 'tick');
+      if (d % 10 === 0) { const [x, y] = at(cx, cy, R - 24, d); b += t(x, y, d, 'ptk'); }
+    }
+    b += seg([cx, cy], at(cx, cy, R + 14, 0), 'ray', true) + seg([cx, cy], at(cx, cy, R + 14, deg), 'ray hl', true);
+    b += `<circle class="vtx" cx="${cx}" cy="${cy}" r="4"/>`;
+    return svg(230, b, 'Protractor');
+  }
+
+  function clockFace(h, m) {
+    const cx = 170, cy = 120, R = 100;
+    let b = `<circle class="clk" cx="${cx}" cy="${cy}" r="${R}"/>`;
+    for (let k = 1; k <= 12; k++) { const [x, y] = at(cx, cy, R - 18, 90 - k * 30); b += t(x, y, k, 'tkf'); }
+    for (let k = 0; k < 60; k++) b += seg(at(cx, cy, R, 90 - k * 6), at(cx, cy, k % 5 ? R - 4 : R - 8, 90 - k * 6), 'tick');
+    const ha = 90 - (h % 12) * 30 - m * 0.5, ma = 90 - m * 6;
+    b += seg([cx, cy], at(cx, cy, 52, ha), 'hand hr') + seg([cx, cy], at(cx, cy, 80, ma), 'hand');
+    b += `<circle class="vtx" cx="${cx}" cy="${cy}" r="5"/>`;
+    return svg(240, b, `Clock showing ${h}:${String(m).padStart(2, '0')}`);
+  }
+
+  // kind: segment | ray | line | parallel | perpendicular | intersecting
+  function lines(kind, rot = 0) {
+    const cx = 170, cy = 115;
+    const P = (d, r) => at(cx, cy, r, d);
+    let b = ARROW;
+    const dot = (p, lab, off) => `<circle class="vtx" cx="${n1(p[0])}" cy="${n1(p[1])}" r="4.5"/>` + (lab ? t(p[0] + off[0], p[1] + off[1], lab, 'tkf') : '');
+    if (kind === 'segment' || kind === 'ray' || kind === 'line') {
+      const a = P(rot + 180, 120), z = P(rot, 120), A = P(rot + 180, 80), B = P(rot, 80);
+      if (kind === 'segment') b += seg(A, B, 'ray') + dot(A, 'A', [0, -16]) + dot(B, 'B', [0, -16]);
+      if (kind === 'ray') b += seg(A, z, 'ray', true) + dot(A, 'A', [0, -16]) + dot(B, 'B', [0, -16]);
+      if (kind === 'line') b += seg(a, z, 'ray', true, true) + dot(A, 'A', [0, -16]) + dot(B, 'B', [0, -16]);
+    } else if (kind === 'parallel') {
+      const off = at(0, 0, 34, rot + 90);
+      [-1, 1].forEach(sg => { const dx = off[0] * sg, dy = off[1] * sg; b += seg([P(rot + 180, 120)[0] + dx, P(rot + 180, 120)[1] + dy], [P(rot, 120)[0] + dx, P(rot, 120)[1] + dy], 'ray', true, true); });
+    } else {
+      const second = kind === 'perpendicular' ? rot + 90 : rot + pick2([40, 55, 125, 140]);
+      b += seg(P(rot + 180, 120), P(rot, 120), 'ray', true, true) + seg(P(second + 180, 95), P(second, 95), 'ray', true, true);
+      if (kind === 'perpendicular') b += rightMark(cx, cy, rot);
+    }
+    return svg(230, b, 'Lines');
+  }
+  const pick2 = a => a[Math.floor(Math.random() * a.length)];
+
+  return { figure, bars, linePlot, picto, fracBars, angles, protractor, clockFace, lines };
 })();
