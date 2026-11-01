@@ -5,12 +5,23 @@
   const PASS = 4;                 // correct answers needed to clear a level
   const STORE = 'virajQuest.v1';
 
+  /* The four areas match the i-Ready / district score report. `focus` marks the area
+     to practise most (Measurement & Data was the lowest sub-score in Fall 2026). */
+  const AREAS = [
+    { id: 'md', name: 'Measurement & Data', focus: true },
+    { id: 'nbt', name: 'Numbers & Operations' },
+    { id: 'oa', name: 'Algebra & Patterns' },
+    { id: 'geo', name: 'Geometry' }
+  ];
   const COMING = [
-    { id: 'fractions', name: 'Fractions', blurb: 'Equivalent fractions, comparing, adding.', icon: 'pie' },
-    { id: 'multiply', name: 'Big Multiplication', blurb: 'Multi-digit times and long division.', icon: 'times' },
-    { id: 'angles', name: 'Angles & Lines', blurb: 'Measure angles, parallel and perpendicular.', icon: 'angle' },
-    { id: 'decimals', name: 'Decimals', blurb: 'Tenths, hundredths and money.', icon: 'dot' },
-    { id: 'patterns', name: 'Patterns & Rules', blurb: 'Number patterns and input/output tables.', icon: 'pattern' }
+    { id: 'graphs', area: 'md', name: 'Graphs & Line Plots', blurb: 'Read bar graphs, line plots and tables.', icon: 'bars' },
+    { id: 'fractions', area: 'nbt', name: 'Fractions', blurb: 'Equivalent fractions, comparing, adding.', icon: 'pie' },
+    { id: 'multiply', area: 'nbt', name: 'Big Multiplication', blurb: 'Multi-digit times and long division.', icon: 'times' },
+    { id: 'decimals', area: 'nbt', name: 'Decimals', blurb: 'Tenths, hundredths and money.', icon: 'dot' },
+    { id: 'patterns', area: 'oa', name: 'Patterns & Rules', blurb: 'Number patterns and input/output tables.', icon: 'pattern' },
+    { id: 'factors', area: 'oa', name: 'Factors & Multiples', blurb: 'Primes, factor pairs and multi-step word problems.', icon: 'times' },
+    { id: 'angles', area: 'geo', name: 'Angles & Lines', blurb: 'Measure angles, parallel and perpendicular.', icon: 'angle' },
+    { id: 'symmetry', area: 'geo', name: 'Shapes & Symmetry', blurb: 'Classify shapes and find lines of symmetry.', icon: 'pattern' }
   ];
   const TOPICS = (window.VQ_TOPICS || []).concat(COMING.filter(c => !(window.VQ_TOPICS || []).some(t => t.id === c.id)));
 
@@ -20,6 +31,8 @@
     times: '<path d="M12 12l24 24M36 12L12 36"/>',
     angle: '<path d="M8 40h32M8 40L34 12"/><path d="M20 40a12 12 0 0 0-3.5-8.5"/>',
     dot: '<rect x="6" y="12" width="14" height="24" rx="3"/><rect x="28" y="12" width="14" height="24" rx="3"/><circle cx="24" cy="34" r="1.8"/>',
+    clock: '<circle cx="24" cy="24" r="17"/><path d="M24 13v11l7 5"/>',
+    bars: '<path d="M8 40h32"/><rect x="11" y="24" width="6" height="16"/><rect x="21" y="14" width="6" height="26"/><rect x="31" y="20" width="6" height="20"/>',
     pattern: '<circle cx="10" cy="30" r="4"/><circle cx="24" cy="22" r="4"/><circle cx="38" cy="14" r="4"/>'
   };
   const icon = n => `<svg class="ic" viewBox="0 0 48 48" aria-hidden="true">${ICONS[n] || ''}</svg>`;
@@ -52,7 +65,7 @@
   /* ---------- home ---------- */
   function home() {
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
-    const tiles = TOPICS.map(t => {
+    const tile = t => {
       if (!t.live) {
         return `<div class="tile soon">${icon(t.icon)}<h2>${t.name}</h2><p>${t.blurb}</p><span class="tag">Coming soon</span></div>`;
       }
@@ -67,13 +80,21 @@
           </div>
           <span class="tag go">${c === 0 ? 'Start' : c === n ? 'Replay' : 'Continue'}</span>
         </button>`;
+    };
+    const sections = AREAS.map(a => {
+      const ts = TOPICS.filter(t => (t.area || 'md') === a.id);
+      if (!ts.length) return '';
+      return `<section class="area${a.focus ? ' focus' : ''}">
+          <h2 class="area-h">${a.name}${a.focus ? ' <span class="pill">Focus area</span>' : ''}</h2>
+          <div class="tiles">${ts.map(tile).join('')}</div>
+        </section>`;
     }).join('');
     go(`<section class="hello">
           <p class="eyebrow">Pick a quest</p>
           <h1>Hey Viraj, ready to level up?</h1>
           <p class="lede">Every quest has 10 levels. Get ${PASS} of ${QUESTIONS} right to unlock the next one. Each level is harder than the last.</p>
         </section>
-        <div class="tiles">${tiles}</div>`);
+        ${sections}`);
     app.querySelectorAll('[data-topic]').forEach(b => b.addEventListener('click', () => map(TOPICS.find(t => t.id === b.dataset.topic))));
   }
 
@@ -170,7 +191,7 @@
 
     function check(v, btn) {
       const q = run.qs[run.i];
-      const ok = q.choices ? v === q.answer : Math.abs(v - q.answer) < 1e-9;
+      const ok = q.choices ? v === q.answer : Math.abs(v - q.answer) < 1e-6;
       run.log[run.i] = ok;
       if (ok) { run.right++; state.xp += q.usedHint ? 5 : 10; save(); showXP(); }
       if (q.usedHint) run.hints++;
@@ -183,7 +204,7 @@
       } else {
         app.querySelector('.field').classList.add(ok ? 'right' : 'wrong');
       }
-      const correct = q.choices ? q.choices[q.answer] : (q.unit === 'dollars' ? '$' + q.answer.toLocaleString('en-US') : `${q.answer.toLocaleString('en-US')} ${q.unit || ''}`);
+      const correct = q.choices ? q.choices[q.answer] : (q.unit === 'dollars' ? '$' + q.answer.toFixed(Number.isInteger(q.answer) ? 0 : 2) : `${q.answer.toLocaleString('en-US')} ${q.unit || ''}`);
       const fb = app.querySelector('#fb');
       fb.className = 'feedback ' + (ok ? 'good' : 'bad');
       fb.innerHTML = `<p class="verdict">${ok ? pick(['Nailed it!', 'Correct!', 'Nice work!', 'Exactly right!']) + ` <span class="plus">+${q.usedHint ? 5 : 10} XP</span>` : `Not quite. The answer is <b>${correct}</b>.`}</p>

@@ -532,6 +532,7 @@
 
   (window.VQ_TOPICS = window.VQ_TOPICS || []).push({
     id: 'measurement',
+    area: 'md',
     name: 'Measurement & Area',
     blurb: 'Area, perimeter, units and tricky shapes.',
     grade: 'Grade 4 → 6',

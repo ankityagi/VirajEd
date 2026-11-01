@@ -26,8 +26,17 @@ index.html                 page shell
 css/style.css              all styling (light + dark)
 js/draw.js                 SVG helper for labelled shapes
 js/topics/measurement.js   Measurement & Area: 10 levels of question generators
+js/topics/time-money.js    Time & Money: 10 levels (elapsed time, schedules, coins, change)
 js/app.js                  game engine: home tiles, level map, play loop, results
 ```
+
+## How topics are organised
+
+The home screen groups quests into the four areas from Viraj's school score report
+(i-Ready / Smarter Balanced): Measurement & Data, Numbers & Operations, Algebra & Patterns,
+and Geometry. Measurement & Data is tagged as the focus area because it was his lowest
+sub-score in Fall 2026 (Grade 4). The areas live in `AREAS` at the top of `js/app.js`.
+Each topic sets `area: 'md' | 'nbt' | 'oa' | 'geo'`.
 
 ## Adding a topic
 

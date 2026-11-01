@@ -235,3 +235,11 @@ h2 { font-size: 1.35rem; font-weight: 700; }
   .answer .btn { flex: 1 1 100%; }
   .field { flex: 1 1 100%; }
 }
+
+/* ---------- home: areas from the score report ---------- */
+.area { display: flex; flex-direction: column; gap: 12px; }
+.area-h { font-size: 1.15rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pill {
+  font: 700 .72rem var(--mono); text-transform: uppercase; letter-spacing: .08em;
+  background: var(--coral); color: #fff; padding: 3px 9px; border-radius: 999px;
+}
