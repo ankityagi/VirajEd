@@ -164,11 +164,11 @@
       const q = run.qs[run.i];
       const answerUI = q.choices
         ? `<div class="choices">${q.choices.map((c, k) => `<button class="choice" data-k="${k}">${c}</button>`).join('')}</div>`
-        : `<form class="answer" id="f" autocomplete="off">
+        : `<div class="answer" id="f">
              <label for="ans" class="sr">Your answer</label>
-             <span class="field">${q.unit === 'dollars' ? '<span class="pre">$</span>' : ''}<input id="ans" ${q.frac ? 'inputmode="text"' : 'inputmode="decimal"'} placeholder="${q.frac ? 'e.g. 1 3/4' : '?'}" required>${q.unit && q.unit !== 'dollars' ? `<span class="unit">${q.unit}</span>` : ''}</span>
-             <button class="btn primary" type="submit">Check</button>
-           </form>`;
+             <span class="field">${q.unit === 'dollars' ? '<span class="pre">$</span>' : ''}<input id="ans" ${q.frac ? 'inputmode="text"' : 'inputmode="decimal"'} placeholder="${q.frac ? 'e.g. 1 3/4' : '?'}" autocomplete="off" enterkeyhint="done">${q.unit && q.unit !== 'dollars' ? `<span class="unit">${q.unit}</span>` : ''}</span>
+             <button class="btn primary" type="button" id="check">Check</button>
+           </div>`;
       go(`<div class="playtop">
             <button class="link" id="quit">✕ Quit</button>
             <span class="where">Level ${li + 1} · ${L.title}</span>
@@ -190,12 +190,17 @@
       if (q.choices) {
         app.querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => check(+b.dataset.k, b)));
       } else {
-        app.querySelector('#f').addEventListener('submit', e => {
-          e.preventDefault();
-          const v = parseAnswer(app.querySelector('#ans').value);
-          if (isNaN(v)) { app.querySelector('#ans').focus(); return; }
+        // No <form>: the artifact viewer's sandbox blocks form submission,
+        // so the Check button and the Enter key are wired up directly.
+        const ans = app.querySelector('#ans');
+        const submit = () => {
+          if (ans.disabled) return;
+          const v = parseAnswer(ans.value);
+          if (isNaN(v)) { ans.focus(); return; }
           check(v);
-        });
+        };
+        app.querySelector('#check').addEventListener('click', submit);
+        ans.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
       }
     }
 
