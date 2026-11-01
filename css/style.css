@@ -290,3 +290,5 @@ h2 { font-size: 1.35rem; font-weight: 700; }
 .fig .clk { fill: var(--card); stroke: var(--ink); stroke-width: 3; }
 .fig .hand { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
 .fig .hand.hr { stroke-width: 6; stroke: var(--ink-blue); }
+.qcount { margin-top: 3px; font: 700 .72rem var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-blue); }
+.lvl.locked .qcount { color: var(--muted); }

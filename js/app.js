@@ -92,7 +92,7 @@
     go(`<section class="hello">
           <p class="eyebrow">Pick a quest</p>
           <h1>Hey Viraj, ready to level up?</h1>
-          <p class="lede">Every quest has 10 levels. Get ${PASS} of ${QUESTIONS} right to unlock the next one. Each level is harder than the last.</p>
+          <p class="lede">Every quest has 10 levels, and every level has ${QUESTIONS} questions. Get ${PASS} of ${QUESTIONS} right to unlock the next level. Each level is harder than the last.</p>
         </section>
         ${sections}`);
     app.querySelectorAll('[data-topic]').forEach(b => b.addEventListener('click', () => map(TOPICS.find(t => t.id === b.dataset.topic))));
@@ -107,7 +107,7 @@
       const open = unlocked(t, i), s = starsFor(t, i), next = i === nextIdx;
       return `<button class="lvl${open ? '' : ' locked'}${next ? ' next' : ''}${s ? ' done' : ''}" data-i="${i}" ${open ? '' : 'disabled'}>
           <span class="lvl-n">${i + 1}</span>
-          <span class="lvl-body"><b>${L.title}</b><small>${open ? L.skill : 'Clear level ' + i + ' to unlock'}</small></span>
+          <span class="lvl-body"><b>${L.title}</b><small>${open ? L.skill : 'Clear level ' + i + ' to unlock'}</small><span class="qcount">${QUESTIONS} questions${open ? (s ? ' · play again' : next ? ' · tap to start' : '') : ''}</span></span>
           <span class="lvl-s">${open ? starRow(s) : '<span class="lock" aria-label="Locked">🔒</span>'}</span>
         </button>`;
     }).join('');
@@ -116,7 +116,7 @@
         <section class="maphead">
           <p class="eyebrow">${t.grade}</p>
           <h1>${t.name}</h1>
-          <p class="lede">${c} of ${t.levels.length} levels cleared · ${totalStars(t)} of ${t.levels.length * 3} stars</p>
+          <p class="lede">${t.levels.length} levels × ${QUESTIONS} questions each. Tap a level to start its ${QUESTIONS} questions.<br>${c} of ${t.levels.length} levels cleared · ${totalStars(t)} of ${t.levels.length * 3} stars</p>
           <div class="ruler" aria-hidden="true">${ticks}</div>
         </section>
         <div class="levels">${cards}</div>
