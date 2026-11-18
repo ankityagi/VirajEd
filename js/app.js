@@ -441,6 +441,7 @@
     const who = player || PLAYERS[0], c = VQSync.config();
     go(`<nav class="crumbs"><button class="link" id="back">← Back to the game</button></nav>
         <section class="maphead"><p class="eyebrow">Parent</p><h1>${who.name}'s progress</h1></section>
+        <p class="lede"><a class="btn primary" href="${/ankityagi\.online$|^localhost$|^$/.test(location.hostname) ? 'admin.html' : 'https://viraj.ankityagi.online/admin.html'}" target="_top">Open the full progress dashboard →</a></p>
         <div class="tabs" role="tablist"><button class="tab${tab === 'report' ? ' on' : ''}" data-tab="report">Report</button><button class="tab${tab === 'settings' ? ' on' : ''}" data-tab="settings">Settings</button></div>
         ${tab === 'report' ? '<div id="report"><p class="muted">Loading the progress log…</p></div>' : `
         <section class="panel">

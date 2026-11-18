@@ -45,6 +45,28 @@ python3 -m http.server 8000
    **Contents: Read and write**, and an expiry date.
 3. On Viraj's device: **Parent** → **Settings** → paste the token → **Save and test**.
 
+## Parent dashboard: viraj.ankityagi.online/admin.html
+
+A full-page dashboard (`admin.html`, `js/admin.js`, `css/admin.css`) built from the same
+progress log. It opens with the parent PIN of the device (or sets one on first use) and
+reads the public data repo directly, so it works on any phone or computer with no token.
+It shows:
+
+- totals: time practising, questions, percent correct, levels cleared, typical time per question
+- **What stands out**: plain-English highlights (levels cleared after many tries, perfect
+  levels, his most common slip with an example, mix-ups, levels he quits a lot, slowest type)
+- minutes practised and percent correct per day
+- a **quest map** of all 70 levels: stars, tried-but-not-cleared, not tried (hover for tries)
+- **speed vs accuracy** for every question type, with the ones that need work highlighted
+- **work on next**: weakest question types with an example wrong answer
+- **mistake patterns**: wrong answers grouped into numbers written side by side
+  (6 min 12 s → 612), a lost or extra zero (80 × 30 → 240), small slips (within 5%),
+  multiple-choice mix-ups (with the exact pairs he confuses) and other
+- tries per level (with quits and the try he cleared it on), and every session with each
+  question, his answer and the time taken
+
+The date range (7 days, 30 days, all time) is remembered on the device.
+
 ## Hosting: viraj.ankityagi.online
 
 The site is published with GitHub Pages, the same way as games.ankityagi.online.

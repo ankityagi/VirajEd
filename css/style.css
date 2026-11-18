@@ -356,3 +356,5 @@ h2 { font-size: 1.35rem; font-weight: 700; }
 .callout { margin: 0; padding: 10px 14px; border-radius: 10px; background: var(--bad-bg); border: 2px solid var(--bad); }
 .empty { display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 520px) { .brand-t { display: none; } }
+a.btn { display: inline-block; text-decoration: none; color: var(--ink); }
+a.btn.primary { color: #1b1300; }
