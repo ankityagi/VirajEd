@@ -187,26 +187,43 @@
   function coinsPage(fresh) {
     if (location.hash !== '#coins') history.replaceState(null, '', '#coins');
     const r = rateOf(player.id), bal = balance(), day = PlayCode.today();
-    const todays = spendsOf(player.id).filter(x => x.day === day).sort((a, b) => (a.at < b.at ? 1 : -1));
+    const mine = spendsOf(player.id).slice().sort((a, b) => (a.at < b.at ? 1 : -1));
+    const todays = mine.filter(x => x.day === day), past = mine.filter(x => x.day !== day).slice(0, 8);
+    const stars = allStars(), got = earned(), used = spentCoins(), playedMin = mine.reduce((s, x) => s + (+x.minutes || 0), 0);
     const per = r.starsPerCoin === 1 ? 'Every star you earn is 1 coin' : `Every ${r.starsPerCoin} stars you earn make 1 coin`;
+    const open = cls => `<a class="btn ${cls}" href="${BRAINPLAY}" target="_blank" rel="noopener">Open BrainPlay →</a>`;
+    const when = x => new Date(x.at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     go(`<nav class="crumbs"><button class="link" id="back">← All quests</button></nav>
         ${fresh ? `<section class="panel codebox" aria-live="polite">
           <p class="eyebrow">Your play-time code</p>
           <p class="playcode">${PlayCode.pretty(fresh.code)}</p>
-          <p class="lede">Type it into <a href="${BRAINPLAY}" target="_blank" rel="noopener">BrainPlay</a> for <b>${fresh.minutes} minutes</b> of games. It works <b>today only</b>, one time.</p>
+          <p class="lede">Type it into BrainPlay for <b>${fresh.minutes} minutes</b> of games. It works <b>today only</b>, one time.</p>
+          <div class="actions">${open('primary')}</div>
         </section>` : ''}
-        <section class="maphead">
-          <p class="eyebrow">Coins</p>
-          <h1><span aria-hidden="true">🪙</span> ${bal} coin${bal === 1 ? '' : 's'}</h1>
-          <p class="lede">${per}. Each level's best stars count once, so beat new levels or get more stars to earn more. 1 coin = ${r.minutesPerCoin} minutes on BrainPlay.</p>
+        <section class="wallet">
+          <div class="wallet-main">
+            <p class="eyebrow">${player.name}'s coins</p>
+            <h1><span aria-hidden="true">🪙</span> ${bal} coin${bal === 1 ? '' : 's'}</h1>
+            <p class="lede">That's up to <b>${bal * r.minutesPerCoin} minutes</b> on BrainPlay.</p>
+          </div>
+          ${open(fresh ? '' : 'primary')}
         </section>
+        <dl class="coinstats">
+          <div><dt>Stars</dt><dd>${stars}</dd></div>
+          <div><dt>Coins earned</dt><dd>${got}</dd></div>
+          <div><dt>Coins spent</dt><dd>${used}</dd></div>
+          <div><dt>Minutes bought</dt><dd>${playedMin}</dd></div>
+        </dl>
+        <p class="lede">${per}, and 1 coin = ${r.minutesPerCoin} minutes. Each level's best stars count once, so beat new levels or get more stars to earn more.</p>
         <h2 class="area-h">Get play time</h2>
         <div class="playopts">${playOptions().map(o => `<button class="btn${o.coins <= bal ? ' primary' : ''}" data-coins="${o.coins}" ${o.coins <= bal ? '' : 'disabled'}><b>${o.minutes} min</b><small>${o.coins} coin${o.coins === 1 ? '' : 's'}</small></button>`).join('')}</div>
         ${bal < playOptions()[0].coins ? '<p class="lede">Beat a new level or get more stars to earn coins.</p>' : ''}
         ${todays.length ? `<h2 class="area-h">Today's codes</h2>
         <ul class="codelist">${todays.map(x => `<li><span class="playcode sm">${PlayCode.pretty(x.code)}</span> ${x.minutes} min · ${new Date(x.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</li>`).join('')}</ul>
-        <p class="muted small">Each code works once on BrainPlay, until midnight.</p>` : ''}`,
-      fresh ? '.codebox' : '.playopts .primary');
+        <p class="muted small">Each code works once on BrainPlay, until midnight.</p>` : ''}
+        ${past.length ? `<h2 class="area-h">Earlier play time</h2>
+        <ul class="codelist">${past.map(x => `<li>${x.minutes} min for ${x.coins} coin${x.coins === 1 ? '' : 's'} · ${when(x)}</li>`).join('')}</ul>` : ''}`,
+      fresh ? '.codebox' : '.wallet .btn');
     app.querySelector('#back').addEventListener('click', home);
     app.querySelectorAll('[data-coins]').forEach(b => b.addEventListener('click', () => confirmSpend(+b.dataset.coins)));
   }
