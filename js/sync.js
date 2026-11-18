@@ -94,13 +94,23 @@ window.VQSync = (function () {
     return flushing;
   }
 
-  // All session files for a player, newest last. Files are cached because they never change.
-  async function sessions(player) {
+  // The repo's file list, shared by the calls below for a short while (GitHub allows only
+  // 60 unsigned reads an hour per network, so one list serves sessions, spends and settings).
+  let treeCache = null;
+  async function tree() {
+    if (treeCache && Date.now() - treeCache.at < 60000) return treeCache.paths;
     const c = config();
     const tr = await fetch(`${API}/repos/${c.repo}/git/trees/${c.branch}?recursive=1`, { headers: headers(c.token) });
     if (tr.status === 404 || tr.status === 409) return []; // repo empty or branch not created yet
     if (!tr.ok) throw new Error(`GitHub answered ${tr.status}`);
-    const paths = (await tr.json()).tree.map(n => n.path).filter(p => p.startsWith(`players/${player}/sessions/`) && p.endsWith('.json'));
+    const paths = (await tr.json()).tree.map(n => n.path);
+    treeCache = { at: Date.now(), paths };
+    return paths;
+  }
+  // All JSON files under a folder, oldest first. Files are cached because they never change.
+  async function files(prefix) {
+    const c = config();
+    const paths = (await tree()).filter(p => p.startsWith(prefix) && p.endsWith('.json')).sort();
     const cache = read(K_CACHE, {});
     const missing = paths.filter(p => !cache[p]);
     for (let i = 0; i < missing.length; i += 6) {
@@ -112,6 +122,8 @@ window.VQSync = (function () {
     if (!write(K_CACHE, cache)) { /* storage full: still return what we have */ }
     return paths.map(p => cache[p]).filter(Boolean);
   }
+  // All session files for a player, newest last.
+  const sessions = player => files(`players/${player}/sessions/`);
 
-  return { config, setConfig, test, enqueue, flush, sessions, pending: () => queue().length, lastLog: () => read(K_LOG, null), DEFAULT_REPO };
+  return { config, setConfig, test, enqueue, flush, sessions, files, pending: () => queue().length, lastLog: () => read(K_LOG, null), DEFAULT_REPO };
 })();

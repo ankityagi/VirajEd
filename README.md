@@ -12,6 +12,39 @@ A small practice site for Viraj. Each tile on the home screen is one topic. Each
   chosen on the device the first time (only a hash is stored, with the progress), and it
   switches off again when the page is reloaded. This keeps a child out; it is not real security.
 
+## Coins and play time (BrainPlay)
+
+Stars earn coins, and coins buy play time on BrainPlay (games.ankityagi.online).
+
+- **Earning:** each level's best stars count once (replaying a level earns nothing new). A parent
+  sets the rate under *Parent → Settings → Coins for play time*: stars for 1 coin (1 to 10) and
+  minutes of play for 1 coin (5, 10, 15 or 20). Defaults: 1 star = 1 coin = 5 minutes.
+  The rate is saved on the device and as a file in the progress log
+  (`players/p1/settings/coins/<time>.json`, newest wins), so it reaches his other devices.
+- **Spending:** the 🪙 pill in the header, or the coin bar on the home screen, opens *Get play time*.
+  He picks minutes, confirms, and the coins come off. Each spend is saved on the device and in the
+  log at `players/p1/spends/YYYY/MM/<time>.json` (coins, minutes, code, day).
+- **Balance** = coins from stars − coins spent (this device's spends plus the log's).
+- **Code:** he gets a 6-character code such as `K7Q-2MX` to type into BrainPlay. It works only on
+  the day it was made, and BrainPlay accepts each code once.
+
+### Play code format (`js/playcode.js`)
+
+`js/playcode.js` is self-contained, so the same file goes into Vihaan's site and BrainPlay.
+
+- 6 characters of Crockford base32 (`0-9 A-Z` without `I L O U`), shown as `XXX-XXX`.
+  When checking, dashes and spaces are dropped and `O`→`0`, `I`/`L`→`1`.
+- 30 bits, high to low: **kid** 2 bits (0 = p1 Viraj, 1 = p2 Vihaan, 2 = p3, 3 = p4),
+  **minutes** 4 bits (index `i`, minutes = 5 × (i + 1), so 5 to 80), **nonce** 8 bits (random,
+  unique per kid per day on the device), **sig** 16 bits.
+- `sig` = first 16 bits of `HMAC-SHA256(KEY, "bp1|<kid>|<i>|<nonce>|<YYYY-MM-DD>")`, where the date
+  is the device's local date. The date is not in the code: the checker signs with *its own* today,
+  so yesterday's codes fail.
+- `PlayCode.check(text)` returns `{ ok, player, minutes, code }` or `{ ok: false, reason }`.
+  BrainPlay should also keep a list of codes already used today and refuse repeats.
+- The key is in public page code, so someone who reads the source could make codes. That is fine
+  for a kids' reward; a small server could hold the key later.
+
 ## Run it
 
 It's a static site, with no build step. Open `index.html` in a browser, or serve the folder:
@@ -96,7 +129,8 @@ js/topics/fractions.js     Fractions: 10 levels (equivalent, compare, add/subtra
 js/topics/multiply.js      Big Multiplication: 10 levels (×10s, area model, 2-digit × 2-digit, long division, remainders)
 js/topics/angles.js        Angles & Lines: 10 levels (angle types, lines/rays, protractor, turns, missing angles, triangles)
 js/topics/patterns.js      Patterns & Rules: 10 levels (sequences, in/out tables, times as many, solve for n, word problems)
-js/app.js                  game engine: home tiles, level map, play loop, results
+js/playcode.js             play-time codes: make and check (shared with BrainPlay)
+js/app.js                  game engine: home tiles, level map, play loop, results, coins
 ```
 
 ## How topics are organised

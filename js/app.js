@@ -120,6 +120,8 @@
   function showXP() {
     xpEl.textContent = `${state.xp} XP`;
     xpEl.hidden = !player;
+    const cp = document.getElementById('coins');
+    if (cp) { cp.hidden = !player; if (player) cp.innerHTML = `<span aria-hidden="true">🪙</span> ${balance()}<span class="sr"> coins</span>`; }
     const who = document.getElementById('who');
     who.innerHTML = player ? `${player.name} · <button class="link" id="logout">Log out</button>` : '';
     if (player) document.getElementById('logout').addEventListener('click', logout);
@@ -130,6 +132,100 @@
     window.scrollTo(0, 0);
     const f = focusSel && app.querySelector(focusSel);
     if (f) f.focus();
+  }
+
+  /* ---------- coins and play time ----------
+     Stars earn coins: each level's best stars count once (replaying earns nothing new), at the
+     rate a parent sets in Parent → Settings. Coins buy play time on BrainPlay
+     (games.ankityagi.online) as a short code that works only today (see js/playcode.js).
+     Each spend is saved on the device and as a file in the progress log, so the balance follows
+     him to other devices: earned (from stars) minus spent (from spend files). */
+  const DEFAULT_RATE = { starsPerCoin: 1, minutesPerCoin: 5 };
+  const BRAINPLAY = 'https://games.ankityagi.online';
+  const rateOf = pid => { const r = lsGet('vq.coinrate.' + pid, null); return r && r.starsPerCoin > 0 && r.minutesPerCoin > 0 ? r : Object.assign({ at: '' }, DEFAULT_RATE); };
+  const spendsOf = pid => lsGet('vq.spends.' + pid, []);
+  const allStars = () => Object.values(state.topics).reduce((s, p) => s + Object.values(p.stars || {}).reduce((a, b) => a + (+b || 0), 0), 0);
+  const earned = () => player ? Math.floor(allStars() / rateOf(player.id).starsPerCoin) : 0;
+  const spentCoins = () => player ? spendsOf(player.id).reduce((s, x) => s + (+x.coins || 0), 0) : 0;
+  const balance = () => Math.max(0, earned() - spentCoins());
+  // what a kid can buy: n coins → n × minutesPerCoin minutes, up to 80 (the most a code holds)
+  const playOptions = () => { const m = rateOf(player.id).minutesPerCoin; return [1, 2, 3, 4, 6, 8, 12, 16].filter(n => n * m <= 80 && (n * m) % 5 === 0).map(n => ({ coins: n, minutes: n * m })); };
+  const stampId = now => now.toISOString().replace(/[:.]/g, '-') + '-' + Math.random().toString(36).slice(2, 6);
+
+  function setRate(pid, r) {
+    const rec = { v: 1, player: pid, starsPerCoin: r.starsPerCoin, minutesPerCoin: r.minutesPerCoin, at: new Date().toISOString() };
+    lsSet('vq.coinrate.' + pid, rec);
+    return VQSync.enqueue(`players/${pid}/settings/coins/${stampId(new Date())}.json`, rec);
+  }
+  function spendCoins(coins) {
+    const minutes = coins * rateOf(player.id).minutesPerCoin;
+    if (coins < 1 || coins > balance()) return null;
+    const day = PlayCode.today(), mine = spendsOf(player.id);
+    const used = new Set(mine.filter(x => x.day === day).map(x => x.nonce));
+    let nonce = Math.floor(Math.random() * 256);
+    for (let k = 0; k < 256 && used.has(nonce); k++) nonce = (nonce + 1) % 256;
+    const now = new Date(), id = stampId(now);
+    const sp = { v: 1, id, player: player.id, coins, minutes, code: PlayCode.make(player.id, minutes, nonce, day), day, nonce, at: now.toISOString() };
+    lsSet('vq.spends.' + player.id, mine.concat(sp));
+    VQSync.enqueue(`players/${player.id}/spends/${id.slice(0, 4)}/${id.slice(5, 7)}/${id}.json`, sp);
+    showXP();
+    return sp;
+  }
+  // bring spends and the parent's rate over from the progress log (other devices)
+  async function restoreCoins(pid) {
+    try {
+      const [remote, rates] = await Promise.all([VQSync.files(`players/${pid}/spends/`), VQSync.files(`players/${pid}/settings/coins/`)]);
+      const local = spendsOf(pid), have = new Set(local.map(x => x.id));
+      const add = remote.filter(x => x && x.id && x.player === pid && !have.has(x.id));
+      if (add.length) lsSet('vq.spends.' + pid, local.concat(add));
+      const newest = rates.filter(r => r && r.starsPerCoin > 0 && r.minutesPerCoin > 0).sort((a, b) => (a.at < b.at ? -1 : 1)).pop();
+      if (newest && newest.at > (rateOf(pid).at || '')) lsSet('vq.coinrate.' + pid, newest);
+      if (player && player.id === pid) showXP();
+    } catch (e) { /* offline: keep what this device has */ }
+  }
+
+  function coinsPage(fresh) {
+    if (location.hash !== '#coins') history.replaceState(null, '', '#coins');
+    const r = rateOf(player.id), bal = balance(), day = PlayCode.today();
+    const todays = spendsOf(player.id).filter(x => x.day === day).sort((a, b) => (a.at < b.at ? 1 : -1));
+    const per = r.starsPerCoin === 1 ? 'Every star you earn is 1 coin' : `Every ${r.starsPerCoin} stars you earn make 1 coin`;
+    go(`<nav class="crumbs"><button class="link" id="back">← All quests</button></nav>
+        ${fresh ? `<section class="panel codebox" aria-live="polite">
+          <p class="eyebrow">Your play-time code</p>
+          <p class="playcode">${PlayCode.pretty(fresh.code)}</p>
+          <p class="lede">Type it into <a href="${BRAINPLAY}" target="_blank" rel="noopener">BrainPlay</a> for <b>${fresh.minutes} minutes</b> of games. It works <b>today only</b>, one time.</p>
+        </section>` : ''}
+        <section class="maphead">
+          <p class="eyebrow">Coins</p>
+          <h1><span aria-hidden="true">🪙</span> ${bal} coin${bal === 1 ? '' : 's'}</h1>
+          <p class="lede">${per}. Each level's best stars count once, so beat new levels or get more stars to earn more. 1 coin = ${r.minutesPerCoin} minutes on BrainPlay.</p>
+        </section>
+        <h2 class="area-h">Get play time</h2>
+        <div class="playopts">${playOptions().map(o => `<button class="btn${o.coins <= bal ? ' primary' : ''}" data-coins="${o.coins}" ${o.coins <= bal ? '' : 'disabled'}><b>${o.minutes} min</b><small>${o.coins} coin${o.coins === 1 ? '' : 's'}</small></button>`).join('')}</div>
+        ${bal < playOptions()[0].coins ? '<p class="lede">Beat a new level or get more stars to earn coins.</p>' : ''}
+        ${todays.length ? `<h2 class="area-h">Today's codes</h2>
+        <ul class="codelist">${todays.map(x => `<li><span class="playcode sm">${PlayCode.pretty(x.code)}</span> ${x.minutes} min · ${new Date(x.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</li>`).join('')}</ul>
+        <p class="muted small">Each code works once on BrainPlay, until midnight.</p>` : ''}`,
+      fresh ? '.codebox' : '.playopts .primary');
+    app.querySelector('#back').addEventListener('click', home);
+    app.querySelectorAll('[data-coins]').forEach(b => b.addEventListener('click', () => confirmSpend(+b.dataset.coins)));
+  }
+  function confirmSpend(coins) {
+    const minutes = coins * rateOf(player.id).minutesPerCoin;
+    const wrap = document.createElement('div');
+    wrap.className = 'modal';
+    wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sp-h">
+        <h2 id="sp-h">Trade ${coins} coin${coins === 1 ? '' : 's'} for ${minutes} minutes?</h2>
+        <p class="lede">You'll get a code to type into BrainPlay. It only works today, so get it when you're ready to play.</p>
+        <div class="actions"><button class="btn" type="button" id="sp-no">Not now</button><button class="btn primary" type="button" id="sp-yes">Get my code</button></div>
+      </div>`;
+    document.body.appendChild(wrap);
+    const close = () => wrap.remove();
+    wrap.querySelector('#sp-no').addEventListener('click', close);
+    wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+    wrap.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    wrap.querySelector('#sp-yes').addEventListener('click', () => { close(); const sp = spendCoins(coins); coinsPage(sp); });
+    wrap.querySelector('#sp-yes').focus();
   }
 
   /* ---------- home ---------- */
@@ -165,7 +261,9 @@
           <h1>Hey ${player.name}, ready to level up?</h1>
           <p class="lede">Every quest has 10 levels, and every level has ${QUESTIONS} questions. Get ${PASS} of ${QUESTIONS} right to unlock the next level. Each level is harder than the last.</p>
         </section>
+        <button class="coinbar" id="coinbar"><span class="coinbig" aria-hidden="true">🪙</span><span><b>${balance()} coin${balance() === 1 ? '' : 's'}</b><small>Stars earn coins. Trade them for BrainPlay time.</small></span><span class="tag go">Get play time</span></button>
         ${sections}`);
+    app.querySelector('#coinbar').addEventListener('click', () => coinsPage());
     app.querySelectorAll('[data-topic]').forEach(b => b.addEventListener('click', () => map(TOPICS.find(t => t.id === b.dataset.topic))));
   }
 
@@ -317,9 +415,10 @@
     function results() {
       const stars = run.right === QUESTIONS && run.hints === 0 ? 3 : run.right >= SILVER ? 2 : run.right >= PASS ? 1 : 0;
       const passed = stars > 0;
-      const p = prog(t.id);
+      const p = prog(t.id), coinsBefore = earned();
       const best = Math.max(p.stars[li] || 0, stars);
-      p.stars[li] = best; save();
+      p.stars[li] = best; save(); showXP();
+      const gotCoins = earned() - coinsBefore;
       const saving = record(t, li, run, true, stars);
       const hasNext = li + 1 < t.levels.length;
       const title = !passed ? 'So close!' : li + 1 === t.levels.length ? 'Quest complete!' : stars === 3 ? 'Perfect level!' : 'Level cleared!';
@@ -333,6 +432,7 @@
             <h1>${title}</h1>
             <div class="bigstars">${starRow(stars)}</div>
             <p class="lede">${msg}</p>
+            ${gotCoins > 0 ? `<p class="coin-note"><span aria-hidden="true">🪙</span> +${gotCoins} coin${gotCoins === 1 ? '' : 's'}! You have ${balance()}. <button class="link" id="tocoins">Get play time</button></p>` : ''}
             <div class="actions">
               ${passed && hasNext ? `<button class="btn primary" id="nextlvl">Level ${li + 2}: ${t.levels[li + 1].title} →</button>` : ''}
               <button class="btn ${passed && hasNext ? '' : 'primary'}" id="again">${passed ? 'Play again' : 'Try again'}</button>
@@ -348,6 +448,7 @@
       const nl = app.querySelector('#nextlvl'); if (nl) nl.addEventListener('click', () => play(t, li + 1));
       app.querySelector('#again').addEventListener('click', () => play(t, li));
       app.querySelector('#tomap').addEventListener('click', () => map(t));
+      const tc = app.querySelector('#tocoins'); if (tc) tc.addEventListener('click', () => coinsPage());
     }
   }
 
@@ -429,8 +530,8 @@
   }
   function startAs(p, topic) {
     player = p; state = load(p.id); lsSet(K_CURRENT, p.id); parentMode = false; showXP();
-    topic ? map(topic) : home();
-    if (window.VQSync) { VQSync.flush(); restore(); }
+    topic === 'coins' ? coinsPage() : topic ? map(topic) : home();
+    if (window.VQSync) { VQSync.flush(); restore(); restoreCoins(p.id); }
   }
   function logout() { lsSet(K_CURRENT, null); parentMode = false; login(); }
 
@@ -444,6 +545,14 @@
         <p class="lede"><a class="btn primary" href="${/ankityagi\.online$|^localhost$|^$/.test(location.hostname) ? 'admin.html' : 'https://viraj.ankityagi.online/admin.html'}" target="_top">Open the full progress dashboard →</a></p>
         <div class="tabs" role="tablist"><button class="tab${tab === 'report' ? ' on' : ''}" data-tab="report">Report</button><button class="tab${tab === 'settings' ? ' on' : ''}" data-tab="settings">Settings</button></div>
         ${tab === 'report' ? '<div id="report"><p class="muted">Loading the progress log…</p></div>' : `
+        <section class="panel">
+          <h2>Coins for play time</h2>
+          <p class="muted small">${who.name} earns coins from stars (each level's best stars count once) and trades them for codes that unlock play time on BrainPlay. Set the rate here.</p>
+          <label for="c-stars">Stars for 1 coin</label><input id="c-stars" class="txt" type="number" inputmode="numeric" min="1" max="10" step="1" value="${rateOf(who.id).starsPerCoin}">
+          <label for="c-min">Minutes of play for 1 coin</label><select id="c-min" class="txt">${[5, 10, 15, 20].map(m => `<option value="${m}"${m === rateOf(who.id).minutesPerCoin ? ' selected' : ''}>${m} minutes</option>`).join('')}</select>
+          <div class="actions left"><button class="btn primary" type="button" id="c-save">Save rate</button></div>
+          <p class="pin-msg" id="c-msg"></p>
+        </section>
         <section class="panel">
           <h2>Save progress to GitHub</h2>
           <p class="muted small">Each level is saved as a small text file in <b>${c.repo}</b> under the code <b>${who.id}</b> (no names). Reading the report needs nothing; saving needs an access token, entered here once on ${who.name}'s device.</p>
@@ -471,6 +580,14 @@
       });
     } else {
       const msg = app.querySelector('#s-msg');
+      app.querySelector('#c-save').addEventListener('click', async () => {
+        const cm = app.querySelector('#c-msg'), sp = Math.round(+app.querySelector('#c-stars').value), mp = +app.querySelector('#c-min').value;
+        if (!(sp >= 1 && sp <= 10)) { cm.textContent = 'Stars for 1 coin should be 1 to 10.'; cm.className = 'pin-msg bad'; return; }
+        const f = await setRate(who.id, { starsPerCoin: sp, minutesPerCoin: mp });
+        cm.className = 'pin-msg good';
+        cm.textContent = `Saved: ${sp} star${sp === 1 ? '' : 's'} = 1 coin = ${mp} minutes.` + (f.error ? ' It will reach his other devices once this one uploads.' : '');
+        showXP();
+      });
       app.querySelector('#s-save').addEventListener('click', async () => {
         const cfg = { repo: app.querySelector('#s-repo').value.trim(), branch: app.querySelector('#s-branch').value.trim() || 'main', token: app.querySelector('#s-token').value.trim() };
         msg.textContent = 'Checking…';
@@ -509,8 +626,9 @@
 
   /* ---------- boot ---------- */
   document.getElementById('home').addEventListener('click', home);
+  document.getElementById('coins').addEventListener('click', () => (player ? coinsPage() : login()));
   document.getElementById('parent-link').addEventListener('click', () => parentGate(() => parentPage('report')));
-  const start = TOPICS.find(t => t.live && '#' + t.id === location.hash);
+  const start = location.hash === '#coins' ? 'coins' : TOPICS.find(t => t.live && '#' + t.id === location.hash);
   const current = PLAYERS.find(p => p.id === lsGet(K_CURRENT, null));
   current ? startAs(current, start) : login();
 })();
